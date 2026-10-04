@@ -1,0 +1,96 @@
+-- 9. CARTS
+CREATE TABLE carts (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    book_id BIGINT NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    added_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_carts_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_carts_book FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+    UNIQUE KEY uk_cart_user_book (user_id, book_id),
+    INDEX idx_carts_user (user_id)
+) ENGINE=InnoDB;
+
+-- 10. COUPONS
+CREATE TABLE coupons (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(150),
+    description TEXT,
+    discount_type ENUM('percent','fixed') NOT NULL,
+    discount_value DECIMAL(12,2) NOT NULL,
+    max_discount DECIMAL(12,2),
+    min_order_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+    usage_limit INT,
+    used_count INT NOT NULL DEFAULT 0,
+    per_user_limit INT NOT NULL DEFAULT 1,
+    start_date DATETIME NOT NULL,
+    end_date DATETIME NOT NULL,
+    status ENUM('active','inactive','expired') NOT NULL DEFAULT 'active',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_coupons_status (status),
+    INDEX idx_coupons_date (start_date, end_date)
+) ENGINE=InnoDB;
+
+-- 11. ORDERS
+CREATE TABLE orders (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_code VARCHAR(30) NOT NULL UNIQUE,
+    user_id BIGINT NOT NULL,
+    address_id BIGINT,
+    shipping_address VARCHAR(500),
+    subtotal DECIMAL(12,2) NOT NULL,
+    discount_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+    coupon_id BIGINT,
+    shipping_fee DECIMAL(12,2) NOT NULL DEFAULT 0,
+    total_amount DECIMAL(12,2) NOT NULL,
+    payment_method ENUM('cod','banking','momo','vnpay','stripe') NOT NULL,
+    payment_status ENUM('pending','paid','failed','refunded') NOT NULL DEFAULT 'pending',
+    order_status ENUM('pending','confirmed','shipping','delivered','cancelled','returned') NOT NULL DEFAULT 'pending',
+    note TEXT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_orders_address FOREIGN KEY (address_id) REFERENCES addresses(id) ON DELETE SET NULL,
+    CONSTRAINT fk_orders_coupon FOREIGN KEY (coupon_id) REFERENCES coupons(id) ON DELETE SET NULL,
+    INDEX idx_orders_user (user_id),
+    INDEX idx_orders_status (order_status),
+    INDEX idx_orders_payment (payment_status),
+    INDEX idx_orders_created (created_at)
+) ENGINE=InnoDB;
+
+-- 12. ORDER_ITEMS
+CREATE TABLE order_items (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_id BIGINT NOT NULL,
+    book_id BIGINT NOT NULL,
+    quantity INT NOT NULL,
+    unit_price DECIMAL(12,2) NOT NULL,
+    discount DECIMAL(12,2) NOT NULL DEFAULT 0,
+    subtotal DECIMAL(12,2) NOT NULL,
+    CONSTRAINT fk_oi_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    CONSTRAINT fk_oi_book FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE RESTRICT,
+    INDEX idx_oi_order (order_id),
+    INDEX idx_oi_book (book_id)
+) ENGINE=InnoDB;
+-- 14. REVIEWS
+CREATE TABLE reviews (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    book_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    order_id BIGINT,
+    rating TINYINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    comment TEXT,
+    status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_reviews_book FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+    CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_reviews_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE SET NULL,
+    UNIQUE KEY uk_review_book_user_order (book_id, user_id, order_id),
+    INDEX idx_reviews_book (book_id),
+    INDEX idx_reviews_user (user_id),
+    INDEX idx_reviews_status (status)
+) ENGINE=InnoDB;
