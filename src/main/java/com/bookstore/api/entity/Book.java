@@ -4,8 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "books")
@@ -26,19 +26,25 @@ public class Book {
     @Column(nullable = false, unique = true, length = 280)
     private String slug;
 
-    @Column(unique = true, length = 20)
+    @Column(unique = true, length = 50)
     private String isbn;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "LONGTEXT")
     private String description;
 
-    @Column(name = "cover_image", length = 255)
-    private String coverImage;
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal price;
 
-    // ===== @ManyToOne: Nhiều sách thuộc 1 NXB =====
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "publisher_id")
-    private Publisher publisher;
+    @Column(name = "sale_price", nullable = true, precision = 12, scale = 2)
+    private BigDecimal salePrice;
+
+    @Column(name = "stock_quantity", nullable = false)
+    @Builder.Default
+    private Integer stockQuantity = 0;
+
+    @Column(name = "sold_quantity")
+    @Builder.Default
+    private Integer soldQuantity = 0;
 
     @Column(name = "publish_year")
     private Integer publishYear;
@@ -47,63 +53,53 @@ public class Book {
     private Integer pageCount;
 
     @Column(length = 50)
-    private String language = "vi";
-
-    @Column(length = 50)
     private String dimensions;
 
     private Integer weight;
 
-    @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal price;
+    @Column(length = 50)
+    @Builder.Default
+    private String language = "Tiếng Việt";
 
-    @Column(name = "sale_price", precision = 12, scale = 2)
-    private BigDecimal salePrice;
+    @Column(name = "cover_image", length = 500)
+    private String coverImage;
 
-    @Column(name = "stock_quantity", nullable = false)
-    private Integer stockQuantity = 0;
+    @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private Set<BookAuthor> authors = new HashSet<>();
 
-    @Column(name = "sold_quantity", nullable = false)
-    private Integer soldQuantity = 0;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "publisher_id")
+    private Publisher publisher;
+
+    @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private Set<BookCategory> bookCategories = new HashSet<>();
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Status status = Status.available;
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private Status status = Status.AVAILABLE;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    // ===== Quan hệ với bảng trung gian =====
-    @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<BookCategory> bookCategories = new ArrayList<>();
-
-    @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<BookAuthor> bookAuthors = new ArrayList<>();
-
     @PrePersist
-    public void prePersist() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        if (this.stockQuantity == null)
-            this.stockQuantity = 0;
-        if (this.soldQuantity == null)
-            this.soldQuantity = 0;
-        if (this.status == null)
-            this.status = Status.available;
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
     }
 
     @PreUpdate
-    public void preUpdate() {
-        this.updatedAt = LocalDateTime.now();
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 
-    public enum Status {
-        available, out_of_stock, discontinued
-    }
+    public enum Status { AVAILABLE, OUT_OF_STOCK, DISCONTINUED }
 }
