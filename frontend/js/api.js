@@ -1,355 +1,399 @@
 /**
- * BOOKNEST API CLIENT (Axios REST Integration & JWT Interceptor)
- * Connects to Spring Boot backend (/api/...) with JWT authentication headers,
- * request validation, error formatting, and seamless Mock fallback.
+ * BOOKNEST API CLIENT
+ * Kết nối Spring Boot backend (/api/...) bằng JWT. Mọi hàm trả về dữ liệu đã chuyển
+ * sang dạng mà giao diện dùng (id dạng chuỗi, giá hiệu lực, tên tác giả...).
  */
 
 const API_CONFIG = {
     BASE_URL: 'http://localhost:8080/api',
-    TIMEOUT: 6000,
+    TIMEOUT: 20000,
     TOKEN_KEY: 'booknest_jwt_token',
     USER_KEY: 'booknest_user_profile'
 };
 
-// Initialize Axios Instance
 const apiClient = axios.create({
     baseURL: API_CONFIG.BASE_URL,
     timeout: API_CONFIG.TIMEOUT,
-    headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-    }
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }
 });
 
-// Request Interceptor: Attach JWT Token to Authorization Header
-apiClient.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem(API_CONFIG.TOKEN_KEY);
-        if (token) {
-            config.headers['Authorization'] = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
-    }
-);
+apiClient.interceptors.request.use((config) => {
+    const token = localStorage.getItem(API_CONFIG.TOKEN_KEY);
+    if (token) config.headers['Authorization'] = `Bearer ${token}`;
+    return config;
+});
 
-// Response Interceptor: Handle API Responses & Errors
 apiClient.interceptors.response.use(
-    (response) => {
-        return response.data;
-    },
+    (response) => response.data,
     (error) => {
         const status = error.response ? error.response.status : null;
-        let errorMessage = "Đã có lỗi xảy ra khi kết nối máy chủ!";
+        const body = error.response && error.response.data;
+        let message = 'Đã có lỗi xảy ra khi kết nối máy chủ!';
 
-        if (status === 401) {
-            errorMessage = "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!";
-            store.logout();
+        if (!error.response) {
+            message = 'Không kết nối được máy chủ (http://localhost:8080). Hãy chắc chắn backend đang chạy.';
+        } else if (body && body.data && typeof body.data === 'object' && !Array.isArray(body.data)) {
+            message = Object.values(body.data).join('. ') || body.message || message;
+        } else if (body && body.message) {
+            message = body.message;
+        } else if (status === 401) {
+            message = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!';
         } else if (status === 403) {
-            errorMessage = "Bạn không có quyền thực hiện hành động này!";
+            message = 'Bạn không có quyền thực hiện hành động này!';
         } else if (status === 404) {
-            errorMessage = "Không tìm thấy dữ liệu yêu cầu!";
-        } else if (status === 400 && error.response.data && error.response.data.message) {
-            errorMessage = error.response.data.message;
-        } else if (!error.response) {
-            console.warn("[API Network Fallback] Spring Boot API offline. Using local Mock database.");
+            message = 'Không tìm thấy dữ liệu yêu cầu!';
         }
 
-        // Return rejected promise with formatted message
-        return Promise.reject({
-            status: status,
-            message: errorMessage,
-            rawError: error
-        });
+        const url = (error.config && error.config.url) || '';
+        if (status === 401 && localStorage.getItem(API_CONFIG.TOKEN_KEY) && !url.startsWith('/auth/login')) {
+            store.logout();
+            message = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!';
+        }
+        return Promise.reject({ status, message, rawError: error });
     }
 );
 
-// High-Level Bookstore API Services
+/* ---------------------------------------------------------------------------
+ * Bộ chuyển đổi DTO backend -> đối tượng giao diện
+ * ------------------------------------------------------------------------- */
+// Escape văn bản người dùng/dữ liệu DB trước khi chèn vào HTML
+const esc = (v) => String(v === null || v === undefined ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+const num = (v) => (v === null || v === undefined ? 0 : Number(v));
+const idOf = (v) => (v === null || v === undefined ? null : String(v));
+
+const Adapter = {
+    book(d) {
+        const price = num(d.price);
+        const sale = d.salePrice === null || d.salePrice === undefined ? 0 : num(d.salePrice);
+        const onSale = sale > 0 && sale < price;
+        const cats = d.categories || [];
+        const authors = d.authors || [];
+        const created = d.createdAt ? new Date(d.createdAt).getTime() : 0;
+        const cover = d.coverImage || app.getBookPlaceholder(d.title, cats[0] && cats[0].name);
+        const book = {
+            id: idOf(d.id),
+            title: d.title,
+            slug: d.slug,
+            isbn: d.isbn,
+            description: d.description || '',
+            price: onSale ? sale : price,
+            originalPrice: onSale ? price : null,
+            listPrice: price,
+            salePriceRaw: d.salePrice === null || d.salePrice === undefined ? null : num(d.salePrice),
+            discountPercent: onSale ? Math.round((1 - sale / price) * 100) : 0,
+            authors: authors.map(a => ({ id: idOf(a.id), name: a.name })),
+            authorName: authors.map(a => a.name).join(', ') || 'Đang cập nhật',
+            categories: cats.map(c => ({ id: idOf(c.id), name: c.name })),
+            categoryId: cats[0] ? idOf(cats[0].id) : null,
+            categoryName: cats[0] ? cats[0].name : 'Sách',
+            publisherId: idOf(d.publisherId || (d.publisher && d.publisher.id)),
+            publisherName: d.publisherName || (d.publisher && d.publisher.name) || '',
+            rating: num(d.averageRating),
+            reviewCount: num(d.reviewCount),
+            soldCount: num(d.soldQuantity),
+            stock: num(d.stockQuantity),
+            pages: d.pageCount || null,
+            publishYear: d.publishYear || null,
+            language: d.language || 'Tiếng Việt',
+            dimensions: d.dimensions || '',
+            weight: d.weight || null,
+            coverImage: cover,
+            rawCoverImage: d.coverImage || '',
+            gallery: [cover],
+            status: d.status,
+            isNew: created > 0 && Date.now() - created < 30 * 86400000,
+            isFlashSale: onSale,
+            createdAt: d.createdAt,
+            relatedBooks: (d.relatedBooks || []).map(b => Adapter.book(b))
+        };
+        store.books.set(book.id, book); // sách đã tải được lưu đệm cho Xem Nhanh / Thêm giỏ
+        return book;
+    },
+
+    cart(c) {
+        const items = (c.items || []).map(i => {
+            const original = num(i.originalPrice);
+            const price = num(i.salePrice) || original;
+            return {
+                itemId: i.id,
+                bookId: idOf(i.bookId),
+                title: i.bookTitle,
+                coverImage: i.bookCoverImage || app.getBookPlaceholder(i.bookTitle),
+                authorName: i.authorName || '',
+                price,
+                originalPrice: original > price ? original : null,
+                quantity: i.quantity,
+                subtotal: num(i.subtotal),
+                stock: num(i.stockQuantity),
+                inStock: i.inStock !== false
+            };
+        });
+        return {
+            items,
+            count: num(c.totalItems) || items.reduce((s, i) => s + i.quantity, 0),
+            subtotal: num(c.subtotal),
+            shippingFee: num(c.estimatedShippingFee),
+            total: num(c.totalAmount)
+        };
+    },
+
+    user(u) {
+        return {
+            id: idOf(u.id),
+            username: u.username,
+            name: u.fullName || u.username,
+            fullName: u.fullName,
+            email: u.email,
+            phone: u.phone || '',
+            avatar: u.avatar || '',
+            gender: u.gender || '',
+            birthday: u.birthday || '',
+            role: u.role,
+            isAdmin: u.role === 'ADMIN',
+            isStaff: u.role === 'STAFF',
+            loyaltyPoints: u.loyaltyPoints || 0,
+            hasSetPreferences: !!u.hasSetPreferences,
+            status: u.status,
+            createdAt: u.createdAt,
+            lastLoginAt: u.lastLoginAt
+        };
+    },
+
+    address(a) {
+        return { ...a, id: idOf(a.id) };
+    },
+
+    order(o) {
+        return {
+            id: idOf(o.id),
+            orderCode: o.orderCode,
+            orderDate: o.createdAt,
+            orderStatus: o.status,
+            paymentStatus: o.paymentStatus,
+            paymentMethod: o.paymentMethod,
+            subtotal: num(o.subtotal),
+            shippingFee: num(o.shippingFee),
+            discountAmount: num(o.discountAmount),
+            totalAmount: num(o.totalAmount),
+            couponCode: o.couponCode,
+            shippingAddress: o.shippingAddress,
+            note: o.note,
+            customerName: o.customerName,
+            customerPhone: o.customerPhone,
+            customerEmail: o.customerEmail,
+            items: (o.items || []).map(i => ({
+                bookId: idOf(i.bookId),
+                title: i.bookTitle,
+                coverImage: i.bookCoverImage || app.getBookPlaceholder(i.bookTitle),
+                price: num(i.price),
+                quantity: i.quantity,
+                subtotal: num(i.subtotal)
+            }))
+        };
+    },
+
+    review(r) {
+        return {
+            id: idOf(r.id),
+            bookId: idOf(r.bookId),
+            userId: idOf(r.userId),
+            userName: r.userFullName || r.username || 'Ẩn danh',
+            userAvatar: r.userAvatar || '',
+            rating: r.rating,
+            title: r.title || '',
+            comment: r.comment || '',
+            verified: !!r.isVerifiedPurchase,
+            date: r.createdAt
+        };
+    },
+
+    category(c) {
+        return { id: idOf(c.id), name: c.name, slug: c.slug, description: c.description || '', icon: c.icon || '', image: c.image || '', displayOrder: c.displayOrder || 0, active: c.active !== false };
+    },
+    author(a) {
+        return { ...a, id: idOf(a.id) };
+    },
+    publisher(p) {
+        return { ...p, id: idOf(p.id) };
+    },
+    coupon(c) {
+        return { ...c, id: idOf(c.id), discountValue: num(c.discountValue), minOrderAmount: num(c.minOrderAmount), maxDiscountAmount: c.maxDiscountAmount === null || c.maxDiscountAmount === undefined ? null : num(c.maxDiscountAmount), calculatedDiscount: num(c.calculatedDiscount) };
+    },
+    session(s) {
+        return { ...s, amount: num(s.amount), receivedAmount: num(s.receivedAmount) };
+    }
+};
+
+const unwrapList = (res, fn) => ({ items: (res.data || []).map(fn), pagination: res.pagination || null });
+const asNumber = (id) => Number(id);
+const clean = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== '' && v !== null && v !== undefined));
+
+/* ---------------------------------------------------------------------------
+ * Các dịch vụ API
+ * ------------------------------------------------------------------------- */
 const ApiService = {
-    // Auth Endpoints
     auth: {
-        async login(email, password) {
-            try {
-                const res = await apiClient.post('/auth/login', { email, password });
-                return res;
-            } catch (err) {
-                // Fallback demo mock auth
-                const user = BOOKNEST_DATA.demoUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-                if (user) {
-                    const mockToken = "mock_jwt_token_" + btoa(JSON.stringify(user));
-                    return {
-                        token: mockToken,
-                        user: user
-                    };
-                }
-                throw new Error("Email hoặc mật khẩu không chính xác!");
-            }
+        async login(usernameOrEmail, password) {
+            const res = await apiClient.post('/auth/login', { usernameOrEmail, password });
+            return { token: res.data.token, user: Adapter.user(res.data.user) };
         },
-
-        async register(userData) {
-            try {
-                return await apiClient.post('/auth/register', userData);
-            } catch (err) {
-                // Fallback mock registration
-                const newUser = {
-                    id: "user_" + Date.now(),
-                    name: userData.fullName || userData.name,
-                    email: userData.email,
-                    role: "ROLE_CUSTOMER",
-                    phone: userData.phone || "",
-                    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80",
-                    favoriteCategories: [],
-                    addresses: []
-                };
-                const mockToken = "mock_jwt_token_" + btoa(JSON.stringify(newUser));
-                return {
-                    token: mockToken,
-                    user: newUser
-                };
-            }
+        async register(payload) {
+            const res = await apiClient.post('/auth/register', payload);
+            return res.data;
         },
-
-        async getProfile() {
-            try {
-                return await apiClient.get('/users/me');
-            } catch (err) {
-                return store.currentUser;
-            }
+        forgotPassword: (emailOrUsername) => apiClient.post('/auth/forgot-password', { emailOrUsername }),
+        resetPassword: (token, newPassword) => apiClient.post('/auth/reset-password', { token, newPassword }),
+        async me() {
+            const res = await apiClient.get('/auth/me');
+            return Adapter.user(res.data);
         }
     },
 
-    // Books Endpoints
+    users: {
+        async updateProfile(body) {
+            const res = await apiClient.put('/users/me', clean(body));
+            return Adapter.user(res.data);
+        },
+        changePassword: (currentPassword, newPassword) => apiClient.put('/users/me/change-password', { currentPassword, newPassword }),
+        async favoriteCategories() {
+            const res = await apiClient.get('/users/me/favorite-categories');
+            return (res.data || []).map(Adapter.category);
+        },
+        async saveFavoriteCategories(ids) {
+            const res = await apiClient.post('/users/me/favorite-categories', { categoryIds: ids.map(asNumber) });
+            return (res.data || []).map(Adapter.category);
+        }
+    },
+
+    addresses: {
+        async list() {
+            const res = await apiClient.get('/addresses');
+            return (res.data || []).map(Adapter.address);
+        },
+        async create(body) { return Adapter.address((await apiClient.post('/addresses', body)).data); },
+        async update(id, body) { return Adapter.address((await apiClient.put(`/addresses/${id}`, body)).data); },
+        remove: (id) => apiClient.delete(`/addresses/${id}`),
+        setDefault: (id) => apiClient.put(`/addresses/${id}/default`)
+    },
+
     books: {
-        async getAll(params = {}) {
-            try {
-                return await apiClient.get('/books', { params });
-            } catch (err) {
-                let books = store.getBooks();
-                if (params.category) {
-                    books = books.filter(b => b.categoryId === params.category || b.subCategoryId === params.category);
-                }
-                if (params.keyword) {
-                    const kw = params.keyword.toLowerCase();
-                    books = books.filter(b => b.title.toLowerCase().includes(kw) || b.authorName.toLowerCase().includes(kw));
-                }
-                if (params.authorId) {
-                    books = books.filter(b => b.authorId === params.authorId);
-                }
-                if (params.publisherId) {
-                    books = books.filter(b => b.publisherId === params.publisherId);
-                }
-                if (params.minPrice) {
-                    books = books.filter(b => b.price >= Number(params.minPrice));
-                }
-                if (params.maxPrice) {
-                    books = books.filter(b => b.price <= Number(params.maxPrice));
-                }
-                if (params.rating) {
-                    books = books.filter(b => b.rating >= Number(params.rating));
-                }
-                if (params.sort) {
-                    if (params.sort === 'price-asc') books.sort((a, b) => a.price - b.price);
-                    else if (params.sort === 'price-desc') books.sort((a, b) => b.price - a.price);
-                    else if (params.sort === 'rating') books.sort((a, b) => b.rating - a.rating);
-                    else if (params.sort === 'bestseller') books.sort((a, b) => b.soldCount - a.soldCount);
-                    else if (params.sort === 'new') books.sort((a, b) => b.publishYear - a.publishYear);
-                }
-                return books;
-            }
+        async list(params = {}) {
+            const res = await apiClient.get('/books', { params: clean(params) });
+            return unwrapList(res, Adapter.book);
         },
-
-        async getById(id) {
-            try {
-                return await apiClient.get(`/books/${id}`);
-            } catch (err) {
-                const book = store.getBooks().find(b => b.id === id);
-                if (book) return book;
-                throw new Error("Không tìm thấy cuốn sách này!");
-            }
-        },
-
-        async create(bookData) {
-            try {
-                return await apiClient.post('/books', bookData);
-            } catch (err) {
-                return store.addBook(bookData);
-            }
-        },
-
-        async update(id, bookData) {
-            try {
-                return await apiClient.put(`/books/${id}`, bookData);
-            } catch (err) {
-                return store.updateBook(id, bookData);
-            }
-        },
-
-        async delete(id) {
-            try {
-                return await apiClient.delete(`/books/${id}`);
-            } catch (err) {
-                return store.deleteBook(id);
-            }
-        }
+        async get(id) { return Adapter.book((await apiClient.get(`/books/${id}`)).data); },
+        async featured(limit = 8) { return ((await apiClient.get('/books/featured', { params: { limit } })).data || []).map(Adapter.book); },
+        async bestsellers(limit = 8) { return ((await apiClient.get('/books/bestsellers', { params: { limit } })).data || []).map(Adapter.book); },
+        async newest(limit = 8) { return ((await apiClient.get('/books/newest', { params: { limit } })).data || []).map(Adapter.book); }
     },
 
-    // Categories Endpoints
     categories: {
-        async getAll() {
-            try {
-                return await apiClient.get('/categories');
-            } catch (err) {
-                return store.getCategories();
-            }
-        },
-
-        async create(catData) {
-            try {
-                return await apiClient.post('/categories', catData);
-            } catch (err) {
-                return store.addCategory(catData);
-            }
-        },
-
-        async update(id, catData) {
-            try {
-                return await apiClient.put(`/categories/${id}`, catData);
-            } catch (err) {
-                return store.updateCategory(id, catData);
-            }
-        },
-
-        async delete(id) {
-            try {
-                return await apiClient.delete(`/categories/${id}`);
-            } catch (err) {
-                return store.deleteCategory(id);
-            }
-        }
+        async list() { return ((await apiClient.get('/categories')).data || []).map(Adapter.category); },
+        async create(body) { return Adapter.category((await apiClient.post('/categories', body)).data); },
+        async update(id, body) { return Adapter.category((await apiClient.put(`/categories/${id}`, body)).data); },
+        remove: (id) => apiClient.delete(`/categories/${id}`)
     },
 
-    // Authors & Publishers Endpoints
     authors: {
-        async getAll() {
-            try { return await apiClient.get('/authors'); }
-            catch (err) { return store.getAuthors(); }
-        },
-        async create(author) {
-            try { return await apiClient.post('/authors', author); }
-            catch (err) { return store.addAuthor(author); }
-        },
-        async update(id, author) {
-            try { return await apiClient.put(`/authors/${id}`, author); }
-            catch (err) { return store.updateAuthor(id, author); }
-        },
-        async delete(id) {
-            try { return await apiClient.delete(`/authors/${id}`); }
-            catch (err) { return store.deleteAuthor(id); }
-        }
+        async list() { return ((await apiClient.get('/authors')).data || []).map(Adapter.author); },
+        async create(body) { return Adapter.author((await apiClient.post('/authors', body)).data); },
+        async update(id, body) { return Adapter.author((await apiClient.put(`/authors/${id}`, body)).data); },
+        remove: (id) => apiClient.delete(`/authors/${id}`)
     },
 
     publishers: {
-        async getAll() {
-            try { return await apiClient.get('/publishers'); }
-            catch (err) { return store.getPublishers(); }
-        },
-        async create(pub) {
-            try { return await apiClient.post('/publishers', pub); }
-            catch (err) { return store.addPublisher(pub); }
-        },
-        async update(id, pub) {
-            try { return await apiClient.put(`/publishers/${id}`, pub); }
-            catch (err) { return store.updatePublisher(id, pub); }
-        },
-        async delete(id) {
-            try { return await apiClient.delete(`/publishers/${id}`); }
-            catch (err) { return store.deletePublisher(id); }
+        async list() { return ((await apiClient.get('/publishers')).data || []).map(Adapter.publisher); },
+        async create(body) { return Adapter.publisher((await apiClient.post('/publishers', body)).data); },
+        async update(id, body) { return Adapter.publisher((await apiClient.put(`/publishers/${id}`, body)).data); },
+        remove: (id) => apiClient.delete(`/publishers/${id}`)
+    },
+
+    cart: {
+        async get() { return Adapter.cart((await apiClient.get('/cart')).data); },
+        async add(bookId, quantity = 1) { return Adapter.cart((await apiClient.post('/cart', { bookId: asNumber(bookId), quantity })).data); },
+        async update(itemId, quantity) { return Adapter.cart((await apiClient.put(`/cart/items/${itemId}`, { quantity })).data); },
+        async remove(itemId) { return Adapter.cart((await apiClient.delete(`/cart/items/${itemId}`)).data); },
+        async clear() { await apiClient.delete('/cart'); }
+    },
+
+    coupons: {
+        async list() { return ((await apiClient.get('/coupons')).data || []).map(Adapter.coupon); },
+        async validate(code, orderAmount) {
+            return Adapter.coupon((await apiClient.get('/coupons/validate', { params: { code, orderAmount } })).data);
         }
     },
 
-    // Favorite Categories (Onboarding & Preference Sync)
-    favorites: {
-        async saveFavoriteCategories(categoryIds) {
-            try {
-                return await apiClient.post('/users/favorites', { categoryIds });
-            } catch (err) {
-                return store.saveFavoriteCategories(categoryIds);
-            }
-        },
-
-        async getRecommendations() {
-            try {
-                return await apiClient.get('/recommendations');
-            } catch (err) {
-                return store.getRecommendedBooks();
-            }
-        }
-    },
-
-    // Orders & Checkout
     orders: {
-        async create(orderData) {
-            try {
-                return await apiClient.post('/orders', orderData);
-            } catch (err) {
-                return store.createOrder(orderData);
-            }
+        async create(body) { return Adapter.order((await apiClient.post('/orders', body)).data); },
+        async list(params = {}) {
+            return unwrapList(await apiClient.get('/orders', { params: clean({ size: 50, ...params }) }), Adapter.order);
         },
-
-        async getMyOrders() {
-            try {
-                return await apiClient.get('/orders/my-orders');
-            } catch (err) {
-                return store.getMyOrders();
-            }
-        },
-
-        async getAll() {
-            try {
-                return await apiClient.get('/orders');
-            } catch (err) {
-                return store.getAllOrders();
-            }
-        },
-
-        async updateStatus(orderId, status) {
-            try {
-                return await apiClient.put(`/orders/${orderId}/status`, { status });
-            } catch (err) {
-                return store.updateOrderStatus(orderId, status);
-            }
-        }
+        async get(id) { return Adapter.order((await apiClient.get(`/orders/${id}`)).data); },
+        async cancel(id, reason) { return Adapter.order((await apiClient.post(`/orders/${id}/cancel`, { reason })).data); }
     },
 
-    // Reviews
+    qr: {
+        async createSession(body) { return Adapter.session((await apiClient.post('/payments/qr/session', body)).data); },
+        async active() {
+            const res = await apiClient.get('/payments/qr/session/active');
+            return res.data ? Adapter.session(res.data) : null;
+        },
+        async get(id) { return Adapter.session((await apiClient.get(`/payments/qr/session/${id}`)).data); },
+        async check(id) { return Adapter.session((await apiClient.post(`/payments/qr/session/${id}/check`)).data); },
+        async cancel(id) { return Adapter.session((await apiClient.post(`/payments/qr/session/${id}/cancel`)).data); }
+    },
+
     reviews: {
-        async getByBookId(bookId) {
-            try {
-                return await apiClient.get(`/books/${bookId}/reviews`);
-            } catch (err) {
-                return store.getBookReviews(bookId);
-            }
+        async byBook(bookId, params = {}) {
+            return unwrapList(await apiClient.get(`/reviews/book/${bookId}`, { params: { size: 20, ...params } }), Adapter.review);
         },
-
-        async addReview(bookId, reviewData) {
-            try {
-                return await apiClient.post(`/books/${bookId}/reviews`, reviewData);
-            } catch (err) {
-                return store.addReview(bookId, reviewData);
-            }
+        async summary(bookId) {
+            const d = (await apiClient.get(`/reviews/book/${bookId}/summary`)).data;
+            return { average: num(d.averageRating), total: num(d.totalReviews), starCounts: d.starCounts || {} };
+        },
+        async create(bookId, rating, title, comment) {
+            return Adapter.review((await apiClient.post('/reviews', clean({ bookId: asNumber(bookId), rating, title, comment }))).data);
         }
     },
 
-    // Dashboard Statistics (Admin Minh Anh)
-    dashboard: {
-        async getStats() {
-            try {
-                return await apiClient.get('/admin/dashboard-stats');
-            } catch (err) {
-                return store.getAdminStats();
-            }
-        }
+    wishlist: {
+        async list() { return ((await apiClient.get('/wishlist')).data || []).map(Adapter.book); },
+        add: (bookId) => apiClient.post(`/wishlist/${bookId}`),
+        remove: (bookId) => apiClient.delete(`/wishlist/${bookId}`)
+    },
+
+    recommendations: {
+        async forMe(limit = 12) { return ((await apiClient.get('/recommendations', { params: { limit } })).data || []).map(Adapter.book); }
+    },
+
+    admin: {
+        async dashboard() { return (await apiClient.get('/admin/dashboard-stats')).data; },
+        async orders(params = {}) {
+            return unwrapList(await apiClient.get('/admin/orders', { params: clean({ size: 15, ...params }) }), Adapter.order);
+        },
+        async updateOrderStatus(id, status) {
+            return Adapter.order((await apiClient.put(`/admin/orders/${id}/status`, null, { params: { status } })).data);
+        },
+        async users() { return ((await apiClient.get('/admin/users')).data || []).map(Adapter.user); },
+        async updateUserRole(id, role) { return Adapter.user((await apiClient.put(`/admin/users/${id}/role`, { role })).data); },
+        async updateUserStatus(id, status) { return Adapter.user((await apiClient.put(`/admin/users/${id}/status`, null, { params: { status } })).data); },
+        async createBook(body) { return Adapter.book((await apiClient.post('/admin/books', body)).data); },
+        async updateBook(id, body) { return Adapter.book((await apiClient.put(`/admin/books/${id}`, body)).data); },
+        deleteBook: (id) => apiClient.delete(`/admin/books/${id}`),
+        async coupons() { return ((await apiClient.get('/admin/coupons')).data || []).map(Adapter.coupon); },
+        async createCoupon(body) { return Adapter.coupon((await apiClient.post('/admin/coupons', body)).data); },
+        async updateCoupon(id, body) { return Adapter.coupon((await apiClient.put(`/admin/coupons/${id}`, body)).data); },
+        async qrSessions() { return ((await apiClient.get('/payments/qr/admin/sessions')).data || []).map(Adapter.session); },
+        async bankTransactions() { return (await apiClient.get('/payments/qr/admin/bank-transactions')).data || []; },
+        syncBank: () => apiClient.post('/payments/qr/admin/sync')
+    },
+
+    async uploadImage(file) {
+        const form = new FormData();
+        form.append('file', file);
+        const res = await apiClient.post('/v1/uploads/image', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+        return res.data;
     }
 };
