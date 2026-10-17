@@ -1,23 +1,58 @@
 package com.bookstore.api.service;
 
-import com.bookstore.api.entity.Book;
-import com.bookstore.api.repository.BookRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import com.bookstore.api.dto.request.BookRequest;
+import com.bookstore.api.dto.response.BookDetailResponse;
+import com.bookstore.api.dto.response.BookResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
-@Service
-public class BookService {
+import java.math.BigDecimal;
+import java.util.List;
 
-    @Autowired
-    private BookRepository bookRepository;
+public interface BookService {
 
-    // Áp dụng @Transactional khi thêm/sửa sách
-    // Đảm bảo nếu lưu Sách lỗi thì việc lưu quan hệ với Author/Category cũng bị hủy bỏ (Rollback)
-    @Transactional
-    public Book saveBook(Book book) {
-        // Thực hiện lưu sách vào database
-        // (Các quan hệ Many-to-Many với Author và Category sẽ được Hibernate tự động lưu kèm)
-        return bookRepository.save(book);
-    }
+    Page<BookResponse> searchAndFilterBooks(
+            String keyword,
+            Long categoryId,
+            String categorySlug,
+            Long authorId,
+            String authorSlug,
+            Long publisherId,
+            String publisherSlug,
+            BigDecimal minPrice,
+            BigDecimal maxPrice,
+            Double minRating,
+            Boolean inStock,
+            Boolean featured,
+            String sortBy,
+            Pageable pageable
+    );
+
+    BookDetailResponse getBookById(Long id);
+
+    BookDetailResponse getBookBySlug(String slug);
+
+    List<BookResponse> getFeaturedBooks(int limit);
+
+    List<BookResponse> getBestSellers(int limit);
+
+    List<BookResponse> getNewestBooks(int limit);
+
+    List<BookResponse> getRelatedBooks(Long bookId, int limit);
+
+    BookResponse createBook(BookRequest request);
+
+    BookResponse updateBook(Long id, BookRequest request);
+
+    void deleteBook(Long id);
+
+    List<BookResponse> getAll();
+
+    BookResponse getById(Long id);
+
+    BookResponse create(BookRequest request);
+
+    BookResponse update(Long id, BookRequest request);
+
+    void delete(Long id);
 }

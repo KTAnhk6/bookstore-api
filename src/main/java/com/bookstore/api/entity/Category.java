@@ -1,3 +1,4 @@
+
 package com.bookstore.api.entity;
 
 import jakarta.persistence.*;
@@ -19,7 +20,7 @@ public class Category {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 100)
+    @Column(nullable = false, unique = true, length = 100)
     private String name;
 
     @Column(nullable = false, unique = true, length = 120)
@@ -32,10 +33,12 @@ public class Category {
     private String image;
 
     @Column(name = "sort_order", nullable = false)
+    @Builder.Default
     private Integer sortOrder = 0;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @Builder.Default
     private Status status = Status.active;
 
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -44,27 +47,38 @@ public class Category {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    // ===== SELF-REFERENCE: Cha - Con =====
+    // Danh mục cha
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private Category parent;
 
+    // Danh mục con
     @OneToMany(mappedBy = "parent")
     @OrderBy("sortOrder ASC")
+    @Builder.Default
     private List<Category> children = new ArrayList<>();
 
-    // ===== Quan hệ với BookCategory =====
-    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, orphanRemoval = true)
+    // Quan hệ với BookCategory
+    @OneToMany(
+        mappedBy = "category",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true
+    )
+    @Builder.Default
     private List<BookCategory> bookCategories = new ArrayList<>();
 
     @PrePersist
     public void prePersist() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
-        if (this.status == null)
+
+        if (this.status == null) {
             this.status = Status.active;
-        if (this.sortOrder == null)
+        }
+
+        if (this.sortOrder == null) {
             this.sortOrder = 0;
+        }
     }
 
     @PreUpdate
