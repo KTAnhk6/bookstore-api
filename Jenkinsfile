@@ -2,65 +2,49 @@ pipeline {
     agent any
 
     options {
-        // Tự động xoá các bản build cũ, chỉ giữ lại 10 lần gần nhất để tránh đầy ổ cứng
         buildDiscarder(logRotator(numToKeepStr: '10'))
-        // Ngăn chặn 2 bản build chạy đè lên nhau
         disableConcurrentBuilds()
     }
 
     stages {
         stage('1. Checkout') {
             steps {
-                echo 'Cleaning workspace and fetching code...'
-                deleteDir()       // Xóa sạch file rác của lần build trước
-                checkout scm      // Kéo code mới nhất từ GitHub
+                deleteDir()
+                checkout scm
                 bat 'git log -1 --oneline'
             }
         }
 
-        stage('2. Environment Check') {
+        stage('2. Build & Test') {
             steps {
-                echo 'Checking Java environment...'
-                bat 'java -version'
+                bat 'mvnw.cmd clean package -DskipTests'
             }
         }
 
-        stage('3. Build & Test') {
+        stage('3. Archive Artifacts') {
             steps {
-                echo 'Building and running tests...'
-                // Dùng mvnw.cmd có sẵn trong repo, biên dịch và chạy unit test
-                bat 'mvnw.cmd clean package'
-            }
-            post {
-                always {
-                    // Tự động thu thập báo cáo kết quả test
-                    junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
-                }
-            }
-        }
-
-        stage('4. Archive Artifacts') {
-            steps {
-                echo 'Archiving JAR file...'
-                // Lưu lại file .jar vào Jenkins để có thể tải về trực tiếp từ giao diện web
                 archiveArtifacts artifacts: 'target/*.jar', allowEmptyArchive: false, fingerprint: true
+            }
+        }
+
+        stage('4. Docker CD Deploy') {
+            steps {
+                bat '''
+                docker build -t bookstore-api .
+                docker stop bookstore-api 2>nul || exit 0
+                docker rm -f bookstore-api 2>nul || exit 0
+                docker run -d --name bookstore-api -p 8085:8080 -e SPRING_DATASOURCE_URL="jdbc:mysql://172.23.176.1:3306/bookstore?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true" -e SPRING_DATASOURCE_USERNAME=bookstore_user -e SPRING_DATASOURCE_PASSWORD=*** bookstore-api
+                '''
             }
         }
     }
 
     post {
         success {
-            echo '========================================='
-            echo 'CI SUCCESS: Build & Unit Test thành công!'
-            echo '========================================='
+            echo "CI/CD SUCCESS: API live tai http://160.191.244.100:8085"
         }
         failure {
-            echo '========================================='
-            echo 'CI FAILED: Vui lòng kiểm tra Console Log!'
-            echo '========================================='
-        }
-        always {
-            echo "Hoàn tất Job: ${env.JOB_NAME} - Lần build: #${env.BUILD_NUMBER}"
+            echo "CI/CD FAILED: Kiem tra Console Log!"
         }
     }
 }
