@@ -1,73 +1,66 @@
 pipeline {
-    agent any // hoặc agent { label 'windows-java21' }
-
-    triggers {
-        githubPush()
-    }
+    agent any
 
     options {
-        timestamps()
-        disableConcurrentBuilds()
+        // Tự động xoá các bản build cũ, chỉ giữ lại 10 lần gần nhất để tránh đầy ổ cứng
         buildDiscarder(logRotator(numToKeepStr: '10'))
-    }
-
-    environment {
-        JAVA_HOME = 'C:\\Program Files\\Java\\jdk-21' // đường dẫn JDK trên agent
+        // Ngăn chặn 2 bản build chạy đè lên nhau
+        disableConcurrentBuilds()
     }
 
     stages {
         stage('1. Checkout') {
             steps {
-                deleteDir()
-                checkout scm
+                echo 'Cleaning workspace and fetching code...'
+                deleteDir()       // Xóa sạch file rác của lần build trước
+                checkout scm      // Kéo code mới nhất từ GitHub
                 bat 'git log -1 --oneline'
             }
         }
 
         stage('2. Environment Check') {
             steps {
+                echo 'Checking Java environment...'
                 bat 'java -version'
             }
         }
 
-        stage('3. Compile') {
+        stage('3. Build & Test') {
             steps {
-                // Chỉ compile mã nguồn để kiểm tra lỗi cú pháp
-                bat 'mvnw.cmd clean compile'
-            }
-        }
-
-        stage('4. Unit Test') {
-            steps {
-                // Chạy test tự động
-                bat 'mvnw.cmd test'
+                echo 'Building and running tests...'
+                // Dùng mvnw.cmd có sẵn trong repo, biên dịch và chạy unit test
+                bat 'mvnw.cmd clean package'
             }
             post {
                 always {
-                    // Thu thập báo cáo test JUnit của Maven
+                    // Tự động thu thập báo cáo kết quả test
                     junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
                 }
             }
         }
 
-        stage('5. Package') {
+        stage('4. Archive Artifacts') {
             steps {
-                // Đóng gói ra file jar (bỏ qua chạy lại test vì stage 4 đã test rồi)
-                bat 'mvnw.cmd package -DskipTests'
-            }
-        }
-
-        stage('6. Archive Artifacts') {
-            steps {
-                // Lưu trữ file .jar lên Jenkins
-                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+                echo 'Archiving JAR file...'
+                // Lưu lại file .jar vào Jenkins để có thể tải về trực tiếp từ giao diện web
+                archiveArtifacts artifacts: 'target/*.jar', allowEmptyArchive: false, fingerprint: true
             }
         }
     }
 
     post {
-        success { echo '=== BUILD & TEST SUCCESSFUL ===' }
-        failure { echo '=== BUILD FAILED: KIỂM TRA CONSOLE OUTPUT ===' }
-        always  { echo "Hoàn tất build: ${env.JOB_NAME} #${env.BUILD_NUMBER}" }
+        success {
+            echo '========================================='
+            echo 'CI SUCCESS: Build & Unit Test thành công!'
+            echo '========================================='
+        }
+        failure {
+            echo '========================================='
+            echo 'CI FAILED: Vui lòng kiểm tra Console Log!'
+            echo '========================================='
+        }
+        always {
+            echo "Hoàn tất Job: ${env.JOB_NAME} - Lần build: #${env.BUILD_NUMBER}"
+        }
     }
 }
