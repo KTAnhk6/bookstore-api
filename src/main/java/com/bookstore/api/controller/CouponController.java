@@ -32,8 +32,7 @@ public class CouponController {
     @GetMapping("/validate")
     public ResponseEntity<ApiResponse<CouponResponse>> validateCoupon(
             @RequestParam String code,
-            @RequestParam(required = false, defaultValue = "0") BigDecimal orderAmount
-    ) {
+            @RequestParam(required = false, defaultValue = "0") BigDecimal orderAmount) {
         Coupon coupon = couponRepository.findByCodeIgnoreCaseAndActiveTrue(code.trim())
                 .orElseThrow(() -> new ResourceNotFoundException("Mã giảm giá không tồn tại hoặc đã hết hiệu lực"));
 

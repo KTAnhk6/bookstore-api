@@ -18,4 +18,7 @@ public interface OrderService {
     OrderResponse getOrderByCode(Long userId, String orderCode);
 
     OrderResponse cancelOrder(Long userId, Long orderId, CancelOrderRequest request);
+
+    /** Admin/nhân viên đổi trạng thái đơn; huỷ đơn sẽ hoàn kho và cập nhật thanh toán như khách tự huỷ. */
+    OrderResponse adminUpdateStatus(Long orderId, Order.OrderStatus status);
 }

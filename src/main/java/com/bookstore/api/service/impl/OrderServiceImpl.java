@@ -9,6 +9,7 @@ import com.bookstore.api.exception.BadRequestException;
 import com.bookstore.api.exception.ResourceNotFoundException;
 import com.bookstore.api.repository.*;
 import com.bookstore.api.service.OrderService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -22,9 +23,7 @@ import java.util.List;
 import java.util.Random;
 
 @Service
-/**
- * Service xử lý đơn hàng và thanh toán.
- */
+@RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
@@ -35,26 +34,6 @@ public class OrderServiceImpl implements OrderService {
     private final AddressRepository addressRepository;
     private final CouponRepository couponRepository;
     private final PaymentRepository paymentRepository;
-
-    public OrderServiceImpl(
-            OrderRepository orderRepository,
-            OrderItemRepository orderItemRepository,
-            BookRepository bookRepository,
-            UserRepository userRepository,
-            CartRepository cartRepository,
-            AddressRepository addressRepository,
-            CouponRepository couponRepository,
-            PaymentRepository paymentRepository
-    ) {
-        this.orderRepository = orderRepository;
-        this.orderItemRepository = orderItemRepository;
-        this.bookRepository = bookRepository;
-        this.userRepository = userRepository;
-        this.cartRepository = cartRepository;
-        this.addressRepository = addressRepository;
-        this.couponRepository = couponRepository;
-        this.paymentRepository = paymentRepository;
-    }
 
     private static final Random RANDOM = new Random();
 
@@ -311,6 +290,23 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(Order.OrderStatus.CANCELLED);
         order.setNote("Hủy đơn hàng: " + request.getReason());
 
+        restoreStock(order);
+
+        // Restore points if used
+        if (BigDecimal.ZERO != null && BigDecimal.ZERO.compareTo(BigDecimal.ZERO) > 0) {
+            int restoredPoints = BigDecimal.ZERO.divide(BigDecimal.valueOf(1000), 0, java.math.RoundingMode.HALF_UP).intValue();
+            User user = order.getUser();
+            user.setLoyaltyPoints((user.getLoyaltyPoints() != null ? user.getLoyaltyPoints() : 0) + restoredPoints);
+            userRepository.save(user);
+        }
+
+        failOrRefundPayment(order);
+
+        order = orderRepository.save(order);
+        return OrderResponse.fromEntity(order);
+    }
+
+    private void restoreStock(Order order) {
         // Restore stock
         if (order.getItems() != null) {
             for (OrderItem item : order.getItems()) {
@@ -325,15 +321,9 @@ public class OrderServiceImpl implements OrderService {
                 }
             }
         }
+    }
 
-        // Restore points if used
-        if (BigDecimal.ZERO != null && BigDecimal.ZERO.compareTo(BigDecimal.ZERO) > 0) {
-            int restoredPoints = BigDecimal.ZERO.divide(BigDecimal.valueOf(1000), 0, java.math.RoundingMode.HALF_UP).intValue();
-            User user = order.getUser();
-            user.setLoyaltyPoints((user.getLoyaltyPoints() != null ? user.getLoyaltyPoints() : 0) + restoredPoints);
-            userRepository.save(user);
-        }
-
+    private void failOrRefundPayment(Order order) {
         // Update payment if exists
         paymentRepository.findByOrderId(order.getId()).ifPresent(payment -> {
             if (payment.getStatus() == Order.PaymentStatus.SUCCESS) {
@@ -343,9 +333,30 @@ public class OrderServiceImpl implements OrderService {
             }
             paymentRepository.save(payment);
         });
+    }
 
-        order = orderRepository.save(order);
-        return OrderResponse.fromEntity(order);
+    @Override
+    @Transactional
+    public OrderResponse adminUpdateStatus(Long orderId, Order.OrderStatus status) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+        Order.OrderStatus current = order.getStatus();
+        if (current == status) return OrderResponse.fromEntity(order);
+        if (current == Order.OrderStatus.CANCELLED || current == Order.OrderStatus.RETURNED) {
+            throw new BadRequestException("Đơn hàng đã " + (current == Order.OrderStatus.CANCELLED ? "huỷ" : "hoàn trả") + ", không thể đổi trạng thái");
+        }
+        if (status == Order.OrderStatus.CANCELLED || status == Order.OrderStatus.RETURNED) {
+            restoreStock(order);
+            failOrRefundPayment(order);
+            if (order.getPaymentStatus() == Order.PaymentStatus.SUCCESS) {
+                order.setPaymentStatus(Order.PaymentStatus.REFUNDED);
+            }
+        }
+        order.setStatus(status);
+        if (status == Order.OrderStatus.DELIVERED && order.getPaymentMethod() == Order.PaymentMethod.COD) {
+            order.setPaymentStatus(Order.PaymentStatus.SUCCESS);
+        }
+        return OrderResponse.fromEntity(orderRepository.save(order));
     }
 
     private record CartItemToOrder(Book book, int quantity) {}

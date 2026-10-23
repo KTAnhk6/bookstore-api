@@ -68,10 +68,10 @@ public class OrderServiceTest {
                 .id(1L)
                 .title("Mắt Biếc")
                 .salePrice(new BigDecimal("100000"))
-                .price(new BigDecimal("120000"))
+                .originalPrice(new BigDecimal("120000"))
                 .stockQuantity(10)
                 .soldQuantity(5)
-                .status(Book.Status.AVAILABLE)
+                .status(Book.Status.ACTIVE)
                 .build();
     }
 

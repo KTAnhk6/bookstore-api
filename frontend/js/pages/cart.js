@@ -1,27 +1,58 @@
 /**
  * SHOPPING CART PAGE CONTROLLER
- * Item table, quantity adjustment, coupon voucher calculation,
- * and order subtotal summary.
+ * Giỏ hàng lưu trên backend; mã giảm giá được backend kiểm tra và tính tiền.
  */
 
 const cartPage = {
-    appliedCoupon: null,
+    appliedCoupon: null, // { code, calculatedDiscount } — checkout dùng lại mã này
+    availableCoupons: [],
 
-    render(container) {
-        const cart = store.getCart();
-        const subtotal = store.getCartSubtotal();
-        let discount = 0;
-
-        if (this.appliedCoupon) {
-            if (this.appliedCoupon.code === 'BOOK20' && subtotal >= 200000) discount = 20000;
-            else if (this.appliedCoupon.code === 'VIP50' && subtotal >= 400000) discount = 50000;
-            else if (this.appliedCoupon.code === 'FREESHIP') discount = 30000;
+    async render(container) {
+        if (!store.currentUser) {
+            container.innerHTML = `
+                <div class="container py-12 text-center">
+                    <div style="background: var(--bg-surface); border-radius: var(--radius-xl); padding: 4rem 2rem; border: 1px solid var(--border-color); max-width: 600px; margin: 0 auto;">
+                        <i class="fa-solid fa-user-lock text-muted mb-4" style="font-size: 4rem;"></i>
+                        <h2 class="text-2xl font-bold mb-2">Đăng nhập để xem giỏ hàng</h2>
+                        <p class="text-muted text-sm mb-6">Giỏ hàng được lưu theo tài khoản nên bạn có thể mua tiếp trên mọi thiết bị.</p>
+                        <a href="#/auth" class="btn btn-primary btn-lg"><i class="fa-solid fa-arrow-right-to-bracket mr-2"></i> Đăng Nhập</a>
+                    </div>
+                </div>
+            `;
+            return;
         }
 
-        const shipping = subtotal >= 350000 || (this.appliedCoupon && this.appliedCoupon.code === 'FREESHIP') ? 0 : (cart.length ? 25000 : 0);
-        const total = Math.max(0, subtotal - discount + shipping);
+        const stillHere = app.routeChecker();
+        try {
+            await store.refreshCart();
+            this.availableCoupons = await ApiService.coupons.list().catch(() => []);
+            await this.revalidateCoupon();
+        } catch (err) {
+            app.showError(err);
+        }
+        if (!stillHere()) return;
+        this.draw(container);
+    },
 
-        if (cart.length === 0) {
+    // Tính lại giảm giá theo tạm tính hiện tại; mã không còn hợp lệ thì gỡ
+    async revalidateCoupon() {
+        if (!this.appliedCoupon) return;
+        try {
+            const c = await ApiService.coupons.validate(this.appliedCoupon.code, store.cart.subtotal);
+            this.appliedCoupon = { code: c.code, calculatedDiscount: c.calculatedDiscount };
+        } catch (err) {
+            appToast.warning(`Mã ${this.appliedCoupon.code} không còn áp dụng được: ${err.message}`, 'Voucher');
+            this.appliedCoupon = null;
+        }
+    },
+
+    draw(container) {
+        const cart = store.cart;
+        const items = cart.items;
+        const discount = this.appliedCoupon ? this.appliedCoupon.calculatedDiscount : 0;
+        const total = Math.max(0, cart.subtotal - discount + cart.shippingFee);
+
+        if (items.length === 0) {
             container.innerHTML = `
                 <div class="container py-12 text-center">
                     <div style="background: var(--bg-surface); border-radius: var(--radius-xl); padding: 4rem 2rem; border: 1px solid var(--border-color); max-width: 600px; margin: 0 auto;">
@@ -37,12 +68,14 @@ const cartPage = {
             return;
         }
 
+        const freeShipGap = Math.max(0, 300000 - cart.subtotal);
+
         container.innerHTML = `
             <div class="container py-4">
                 <div class="breadcrumbs text-sm text-muted mb-4 d-flex items-center gap-2">
                     <a href="#/"><i class="fa-solid fa-house"></i> Trang chủ</a>
                     <span>/</span>
-                    <span class="text-main font-semibold">Giỏ Hàng (${store.getCartCount()} món)</span>
+                    <span class="text-main font-semibold">Giỏ Hàng (${cart.count} món)</span>
                 </div>
 
                 <h1 class="text-2xl font-bold mb-4">Giỏ Hàng Của Bạn</h1>
@@ -61,32 +94,34 @@ const cartPage = {
                                 </tr>
                             </thead>
                             <tbody>
-                                ${cart.map(item => `
+                                ${items.map(item => `
                                     <tr>
                                         <td>
                                             <div class="cart-product-info">
-                                                <img src="${item.coverImage}" alt="${item.title}">
+                                                <img src="${esc(item.coverImage)}" alt="${esc(item.title)}" onerror="this.onerror=null; this.src=app.getBookPlaceholder(this.alt, '');">
                                                 <div>
-                                                    <a href="#/book/${item.bookId}" class="font-bold text-sm hover-underline d-block mb-1">${item.title}</a>
-                                                    <span class="text-xs text-muted">${item.authorName || ''}</span>
+                                                    <a href="#/book/${item.bookId}" class="font-bold text-sm hover-underline d-block mb-1">${esc(item.title)}</a>
+                                                    <span class="text-xs text-muted">${esc(item.authorName)}</span>
+                                                    ${item.inStock ? '' : '<span class="badge badge-danger d-block mt-1">Hết hàng</span>'}
                                                 </div>
                                             </div>
                                         </td>
                                         <td>
                                             <span class="font-bold text-sm">${store.formatCurrency(item.price)}</span>
+                                            ${item.originalPrice ? `<span class="original-price d-block">${store.formatCurrency(item.originalPrice)}</span>` : ''}
                                         </td>
                                         <td>
                                             <div class="quantity-spinner">
-                                                <button class="qty-btn" onclick="cartPage.updateQty('${item.bookId}', ${item.quantity - 1})">-</button>
+                                                <button class="qty-btn" onclick="cartPage.updateQty(${item.itemId}, ${item.quantity - 1})">-</button>
                                                 <input type="text" class="qty-input" value="${item.quantity}" readonly>
-                                                <button class="qty-btn" onclick="cartPage.updateQty('${item.bookId}', ${item.quantity + 1})">+</button>
+                                                <button class="qty-btn" onclick="cartPage.updateQty(${item.itemId}, ${item.quantity + 1})" ${item.quantity >= item.stock ? 'disabled' : ''}>+</button>
                                             </div>
                                         </td>
                                         <td>
-                                            <span class="font-bold text-sm text-primary">${store.formatCurrency(item.price * item.quantity)}</span>
+                                            <span class="font-bold text-sm text-primary">${store.formatCurrency(item.subtotal)}</span>
                                         </td>
                                         <td class="text-right">
-                                            <button class="icon-btn text-danger" title="Xoá món này" onclick="cartPage.removeItem('${item.bookId}')">
+                                            <button class="icon-btn text-danger" title="Xoá món này" onclick="cartPage.removeItem(${item.itemId})">
                                                 <i class="fa-solid fa-trash-can"></i>
                                             </button>
                                         </td>
@@ -102,7 +137,7 @@ const cartPage = {
                             <button class="btn btn-outline-danger btn-sm" onclick="modalManager.confirm({
                                 title: 'Xoá Giỏ Hàng',
                                 message: 'Bạn có chắc chắn muốn xoá toàn bộ sách trong giỏ hàng không?',
-                                onConfirm: () => { store.clearCart(); cartPage.render(container); }
+                                onConfirm: () => cartPage.clearAll()
                             })">
                                 <i class="fa-solid fa-trash mr-1"></i> Xoá Hết
                             </button>
@@ -112,27 +147,33 @@ const cartPage = {
                     <!-- Right: Order Summary & Coupon -->
                     <div class="order-summary-card">
                         <h3 class="font-bold text-lg mb-3">Tóm Tắt Đơn Hàng</h3>
-                        
-                        <!-- Coupon Form -->
+
                         <div class="mb-4">
                             <label class="text-xs font-semibold text-muted mb-1 d-block">Mã Khuyến Mãi / Voucher</label>
                             <div class="d-flex gap-2">
-                                <input type="text" id="coupon-code-input" class="form-input text-uppercase font-bold" 
-                                       placeholder="VD: BOOK20, FREESHIP" value="${this.appliedCoupon ? this.appliedCoupon.code : ''}">
+                                <input type="text" id="coupon-code-input" class="form-input text-uppercase font-bold"
+                                       placeholder="Nhập mã giảm giá" value="${this.appliedCoupon ? esc(this.appliedCoupon.code) : ''}"
+                                       onkeydown="if (event.key === 'Enter') cartPage.applyCoupon()">
                                 <button class="btn btn-primary btn-sm" onclick="cartPage.applyCoupon()">Áp Dụng</button>
                             </div>
                             ${this.appliedCoupon ? `
                                 <div class="badge badge-success mt-2 d-inline-flex items-center gap-1">
-                                    <i class="fa-solid fa-check-circle"></i> Đã áp dụng mã: <strong>${this.appliedCoupon.code}</strong>
+                                    <i class="fa-solid fa-check-circle"></i> Đã áp dụng mã: <strong>${esc(this.appliedCoupon.code)}</strong>
                                     <i class="fa-solid fa-xmark ml-2 cursor-pointer" onclick="cartPage.removeCoupon()"></i>
+                                </div>
+                            ` : this.availableCoupons.length ? `
+                                <div class="d-flex flex-wrap gap-1 mt-2">
+                                    ${this.availableCoupons.map(c => `
+                                        <span class="badge badge-subtle cursor-pointer" title="${esc(c.description || '')}" onclick="cartPage.applyCoupon('${esc(c.code)}')">
+                                            ${esc(c.code)} · ${c.discountType === 'PERCENTAGE' ? `-${c.discountValue}%` : `-${store.formatCurrency(c.discountValue)}`} từ ${store.formatCurrency(c.minOrderAmount)}
+                                        </span>`).join('')}
                                 </div>
                             ` : ''}
                         </div>
 
-                        <!-- Summary Rows -->
                         <div class="summary-row">
                             <span>Tạm tính hàng hoá:</span>
-                            <span class="font-semibold text-main">${store.formatCurrency(subtotal)}</span>
+                            <span class="font-semibold text-main">${store.formatCurrency(cart.subtotal)}</span>
                         </div>
                         <div class="summary-row">
                             <span>Giảm giá voucher:</span>
@@ -140,10 +181,11 @@ const cartPage = {
                         </div>
                         <div class="summary-row">
                             <span>Phí vận chuyển:</span>
-                            <span class="font-semibold ${shipping === 0 ? 'text-success' : 'text-main'}">
-                                ${shipping === 0 ? 'Miễn Phí' : store.formatCurrency(shipping)}
+                            <span class="font-semibold ${cart.shippingFee === 0 ? 'text-success' : 'text-main'}">
+                                ${cart.shippingFee === 0 ? 'Miễn Phí' : store.formatCurrency(cart.shippingFee)}
                             </span>
                         </div>
+                        ${freeShipGap > 0 ? `<div class="text-xs text-muted mb-2">Mua thêm ${store.formatCurrency(freeShipGap)} để được miễn phí vận chuyển (đơn từ 300.000 ₫).</div>` : ''}
                         <div class="summary-row total-row">
                             <span>Tổng thanh toán:</span>
                             <span class="total-amount">${store.formatCurrency(total)}</span>
@@ -162,39 +204,59 @@ const cartPage = {
         `;
     },
 
-    updateQty(bookId, qty) {
-        store.updateCartQuantity(bookId, qty);
-        this.render(document.getElementById('main-view'));
+    async refresh() {
+        await this.revalidateCoupon();
+        this.draw(document.getElementById('main-view'));
     },
 
-    removeItem(bookId) {
-        store.removeFromCart(bookId);
-        appToast.info('Đã bỏ cuốn sách khỏi giỏ hàng!');
-        this.render(document.getElementById('main-view'));
+    async updateQty(itemId, qty) {
+        try {
+            await store.updateCartQuantity(itemId, qty);
+            await this.refresh();
+        } catch (err) {
+            app.showError(err);
+        }
     },
 
-    applyCoupon() {
+    async removeItem(itemId) {
+        try {
+            await store.removeFromCart(itemId);
+            appToast.info('Đã bỏ cuốn sách khỏi giỏ hàng!');
+            await this.refresh();
+        } catch (err) {
+            app.showError(err);
+        }
+    },
+
+    async clearAll() {
+        try {
+            await ApiService.cart.clear();
+            await store.refreshCart();
+            this.appliedCoupon = null;
+            this.draw(document.getElementById('main-view'));
+        } catch (err) {
+            app.showError(err);
+        }
+    },
+
+    async applyCoupon(codeArg) {
         const input = document.getElementById('coupon-code-input');
-        const code = input ? input.value.trim().toUpperCase() : '';
-        const found = BOOKNEST_DATA.coupons.find(c => c.code === code);
+        const code = (codeArg || (input ? input.value : '')).trim().toUpperCase();
+        if (!code) return;
 
-        if (found) {
-            const subtotal = store.getCartSubtotal();
-            if (subtotal < found.minSpend) {
-                appToast.warning(`Mã ${found.code} yêu cầu đơn hàng tối thiểu từ ${store.formatCurrency(found.minSpend)}!`, 'Chưa Đủ Điều Kiện');
-                return;
-            }
-            this.appliedCoupon = found;
-            appToast.success(`Áp dụng thành công mã giảm ${found.code}!`, 'Khuyến Mãi');
-            this.render(document.getElementById('main-view'));
-        } else {
-            appToast.error('Mã giảm giá không hợp lệ hoặc đã hết hạn!', 'Lỗi Voucher');
+        try {
+            const c = await ApiService.coupons.validate(code, store.cart.subtotal);
+            this.appliedCoupon = { code: c.code, calculatedDiscount: c.calculatedDiscount };
+            appToast.success(`Áp dụng thành công mã ${c.code}!`, 'Khuyến Mãi');
+            this.draw(document.getElementById('main-view'));
+        } catch (err) {
+            appToast.error(err.message || 'Mã giảm giá không hợp lệ hoặc đã hết hạn!', 'Lỗi Voucher');
         }
     },
 
     removeCoupon() {
         this.appliedCoupon = null;
         appToast.info('Đã gỡ mã giảm giá.');
-        this.render(document.getElementById('main-view'));
+        this.draw(document.getElementById('main-view'));
     }
 };
