@@ -1,4 +1,3 @@
-
 package com.bookstore.api.entity;
 
 import jakarta.persistence.*;
@@ -29,7 +28,7 @@ public class Category {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(length = 255)
+    private String icon;
     private String image;
 
     @Column(name = "sort_order", nullable = false)
@@ -41,24 +40,21 @@ public class Category {
     @Builder.Default
     private Status status = Status.active;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // Danh mục cha
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private Category parent;
 
-    // Danh mục con
     @OneToMany(mappedBy = "parent")
     @OrderBy("sortOrder ASC")
     @Builder.Default
     private List<Category> children = new ArrayList<>();
 
-    // Quan hệ với BookCategory
     @OneToMany(
         mappedBy = "category",
         cascade = CascadeType.ALL,
@@ -82,8 +78,8 @@ public class Category {
     }
 
     @PreUpdate
-    public void preUpdate() {
-        this.updatedAt = LocalDateTime.now();
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 
     public enum Status {
