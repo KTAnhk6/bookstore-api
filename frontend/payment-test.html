@@ -183,6 +183,9 @@ const $ = id => document.getElementById(id);
 const money = v => v == null ? '-' : Number(v).toLocaleString('vi-VN') + 'đ';
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let token = load('qrtest.token'), adminToken = null, current = null, pollTimer = null, tickTimer = null, mode = null;
+if (window.location.protocol.startsWith('http') && window.location.origin) {
+  $('apiBase').value = window.location.origin;
+}
 
 function load(k) { try { return localStorage.getItem(k); } catch { return null; } }
 function save(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} }

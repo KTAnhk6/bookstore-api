@@ -5,11 +5,12 @@
  */
 
 const API_CONFIG = {
-    BASE_URL: 'http://localhost:8080/api',
+    BASE_URL: (window.location.port === '3000') ? 'http://localhost:8080/api' : '/api',
     TIMEOUT: 20000,
     TOKEN_KEY: 'booknest_jwt_token',
     USER_KEY: 'booknest_user_profile'
 };
+const API_BASE_URL = API_CONFIG.BASE_URL;
 
 const apiClient = axios.create({
     baseURL: API_CONFIG.BASE_URL,
@@ -31,7 +32,7 @@ apiClient.interceptors.response.use(
         let message = 'Đã có lỗi xảy ra khi kết nối máy chủ!';
 
         if (!error.response) {
-            message = 'Không kết nối được máy chủ (http://localhost:8080). Hãy chắc chắn backend đang chạy.';
+            message = 'Không kết nối được máy chủ. Hãy chắc chắn backend đang chạy.';
         } else if (body && body.data && typeof body.data === 'object' && !Array.isArray(body.data)) {
             message = Object.values(body.data).join('. ') || body.message || message;
         } else if (body && body.message) {
