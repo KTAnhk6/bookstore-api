@@ -33,7 +33,7 @@ pipeline {
                 docker build -t bookstore-api .
                 docker stop bookstore-api 2>nul || exit 0
                 docker rm -f bookstore-api 2>nul || exit 0
-                docker run -d --name bookstore-api -p 8085:8080 -e SPRING_DATASOURCE_URL="jdbc:mysql://172.23.176.1:3306/bookstore?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true" -e SPRING_DATASOURCE_USERNAME=bookstore_user -e SPRING_DATASOURCE_PASSWORD=*** bookstore-api
+                docker run -d --name bookstore-api -p 8085:8080 -e SPRING_DATASOURCE_URL="jdbc:mysql://172.23.176.1:3306/bookstore?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true" -e SPRING_DATASOURCE_USERNAME=bookstore_user -e SPRING_DATASOURCE_PASSWORD=*** -e SPRING_SECURITY_USER_NAME=admin -e SPRING_SECURITY_USER_PASSWORD=*** bookstore-api
                 '''
             }
         }
