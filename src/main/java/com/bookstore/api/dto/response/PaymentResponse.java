@@ -22,11 +22,6 @@ public class PaymentResponse {
     private Order.PaymentStatus status;
     private String transactionCode;
     private String paymentUrl;
-    private String qrCodeUrl;
-    private String qrData;
-    private LocalDateTime qrExpiredAt;
-    private String bankCode;
-    private String accountNumber;
     private LocalDateTime paymentDate;
     private String notes;
     private LocalDateTime createdAt;
@@ -42,11 +37,6 @@ public class PaymentResponse {
                 .status(payment.getStatus())
                 .transactionCode(payment.getTransactionCode())
                 .paymentUrl(payment.getQrCodeUrl())
-                .qrCodeUrl(payment.getQrCodeUrl())
-                .qrData(payment.getQrData())
-                .qrExpiredAt(payment.getQrExpiredAt())
-                .bankCode(payment.getBankCode())
-                .accountNumber(payment.getAccountNumber())
                 .paymentDate(payment.getPaidAt())
                 .notes(payment.getNotes())
                 .createdAt(payment.getCreatedAt())

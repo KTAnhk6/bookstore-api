@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test thanh toán QR</title>
+<style>
+  :root {
+    --bg: #f3f5f9; --card: #fff; --text: #1d2433; --muted: #667085; --line: #e3e7ef;
+    --primary: #1f5eff; --ok: #12a150; --warn: #d98a00; --bad: #d92d20; --soft: #eef3ff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { background: #101828; color: #fff; padding: 14px 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  header h1 { font-size: 18px; margin: 0 12px 0 0; }
+  header input { width: 220px; }
+  main { max-width: 1280px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; grid-template-columns: 1.1fr 1fr; }
+  @media (max-width: 960px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .card h2 { font-size: 16px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  .step { background: var(--primary); color: #fff; border-radius: 50%; width: 22px; height: 22px; font-size: 12px; display: inline-grid; place-items: center; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+  input, button, select { font: inherit; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); }
+  input { background: #fff; color: var(--text); min-width: 0; }
+  button { background: var(--primary); color: #fff; border: 0; cursor: pointer; font-weight: 600; white-space: nowrap; }
+  button.secondary { background: #e8ecf4; color: var(--text); }
+  button.danger { background: var(--bad); }
+  button.ok { background: var(--ok); }
+  button.warn { background: var(--warn); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { color: var(--muted); font-weight: 600; font-size: 13px; }
+  td input[type=number] { width: 64px; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #e8ecf4; color: var(--text); }
+  .badge.PENDING { background: #fff4d6; color: #8a5a00; }
+  .badge.PAID, .badge.MOCK-ok { background: #dcfae6; color: #067647; }
+  .badge.EXPIRED, .badge.CANCELLED, .badge.LATE, .badge.DUPLICATE { background: #fee4e2; color: #b42318; }
+  .badge.PARTIAL { background: #fff4d6; color: #8a5a00; }
+  .badge.REAL { background: #fee4e2; color: #b42318; }
+  .badge.MOCK { background: #dcfae6; color: #067647; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .qr-wrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; align-items: start; }
+  .qr-box { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 8px; text-align: center; min-height: 240px; display: grid; place-items: center; }
+  .qr-box img { width: 100%; max-width: 224px; image-rendering: pixelated; }
+  .kv { display: grid; grid-template-columns: 100px 1fr; gap: 4px 10px; font-size: 14px; }
+  .kv b { font-weight: 600; word-break: break-all; }
+  .code { font-family: ui-monospace, Consolas, monospace; font-size: 18px; letter-spacing: 1px; color: var(--primary); }
+  .timer { font-size: 32px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .timer.low { color: var(--bad); }
+  .copy { background: none; color: var(--primary); padding: 0 4px; font-size: 13px; }
+  .full { grid-column: 1 / -1; }
+  #log { font: 12.5px/1.5 ui-monospace, Consolas, monospace; background: #0b1220; color: #cfd8e3; border-radius: 10px; padding: 10px; height: 220px; overflow: auto; white-space: pre-wrap; margin: 0; }
+  #log .err { color: #ff8a80; } #log .ok { color: #7ee2a8; }
+  .addr { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  @media (max-width: 560px) { .addr { grid-template-columns: 1fr 1fr; } }
+  .empty { color: var(--muted); padding: 18px; text-align: center; border: 1px dashed var(--line); border-radius: 10px; }
+  .result-banner { padding: 10px 12px; border-radius: 10px; font-weight: 700; margin-top: 10px; display: none; }
+  .result-banner.show { display: block; }
+  .result-banner.PAID { background: #dcfae6; color: #067647; }
+  .result-banner.EXPIRED, .result-banner.CANCELLED { background: #fee4e2; color: #b42318; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🧪 Test thanh toán QR (VietQR + MB Bank)</h1>
+  <label>API <input id="apiBase" value="http://localhost:8080"></label>
+  <button class="secondary" onclick="refreshAll()">Kết nối lại</button>
+  <span>Ngân hàng: <span id="modeBadge" class="badge">?</span></span>
+  <span class="muted" id="accountInfo" style="color:#c9d1e0"></span>
+</header>
+
+<main>
+  <section class="card">
+    <h2><span class="step">1</span>Đăng nhập khách hàng</h2>
+    <div class="row">
+      <input id="email" value="customer@bookstore.vn" style="flex:1">
+      <input id="password" type="password" value="password123" style="width:140px">
+      <button onclick="login()">Đăng nhập</button>
+      <button class="secondary" onclick="register()" title="Tạo tài khoản mới bằng email + mật khẩu đang nhập (DB thật không có tài khoản mẫu customer@bookstore.vn)">Đăng ký</button>
+      <button class="secondary" onclick="logout()">Đăng xuất</button>
+    </div>
+    <div class="muted" id="whoami">Chưa đăng nhập</div>
+
+    <h2 style="margin-top:18px"><span class="step">2</span>Chọn sách → tạo mã QR</h2>
+    <div class="muted" style="margin-bottom:6px">Bấm "Thanh toán QR" ở sách khác khi đang có phiên → phiên cũ bị hủy, đơn cũ hoàn kho, sinh QR + nội dung mới. Bấm lại cùng sách, cùng số lượng → giữ QR cũ.</div>
+    <details style="margin-bottom:8px">
+      <summary class="muted">Địa chỉ giao hàng (đã điền sẵn)</summary>
+      <div class="addr" style="margin-top:6px">
+        <input id="recipientName" value="Nguyen Van A" placeholder="Người nhận">
+        <input id="phone" value="0901234567" placeholder="SĐT">
+        <input id="province" value="Ha Noi" placeholder="Tỉnh">
+        <input id="district" value="Cau Giay" placeholder="Quận">
+        <input id="ward" value="Dich Vong" placeholder="Phường">
+        <input id="detailAddress" value="1 Xuan Thuy" placeholder="Địa chỉ">
+      </div>
+    </details>
+    <table>
+      <thead><tr><th>Sách</th><th>Giá</th><th>Kho</th><th>SL</th><th></th></tr></thead>
+      <tbody id="books"><tr><td colspan="5" class="muted">Đang tải…</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">3</span>Phiên thanh toán hiện tại</h2>
+    <div id="sessionEmpty" class="empty">Chưa có phiên. Chọn sách ở bước 2.</div>
+    <div id="sessionBox" style="display:none">
+      <div class="qr-wrap">
+        <div class="qr-box" id="qrBox"></div>
+        <div>
+          <div class="row" style="justify-content:space-between">
+            <span id="sessionStatus" class="badge">-</span>
+            <span class="timer" id="timer">--:--</span>
+          </div>
+          <div class="kv">
+            <span>Ngân hàng</span><b id="sBank"></b>
+            <span>Số TK</span><b><span id="sAcc"></span> <button class="copy" onclick="copyText('sAcc')">copy</button></b>
+            <span>Chủ TK</span><b id="sName"></b>
+            <span>Số tiền</span><b><span id="sAmount"></span> <button class="copy" onclick="copyRaw(current && current.amount)">copy</button></b>
+            <span>Nội dung CK</span><b><span class="code" id="sCode"></span> <button class="copy" onclick="copyText('sCode')">copy</button></b>
+            <span>Đã nhận</span><b id="sReceived"></b>
+            <span>Đơn hàng</span><b id="sOrder"></b>
+            <span>Sản phẩm</span><b id="sItems"></b>
+          </div>
+        </div>
+      </div>
+      <div class="result-banner" id="resultBanner"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="ok" id="btnCheck" onclick="checkNow()">Tôi đã chuyển khoản (kiểm tra ngay)</button>
+        <button class="danger" id="btnCancel" onclick="cancelSession()">Hủy phiên</button>
+      </div>
+    </div>
+
+    <div id="mockPanel" style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
+      <h2><span class="step">4</span>Ngân hàng giả lập (thay cho app ngân hàng)</h2>
+      <div class="muted" style="margin-bottom:8px">Chỉ bật khi server chưa đặt BANK_HISTORY_URL. Giao dịch được ghi vào "sao kê" giả, server đối soát giống hệt API MB Bank thật.</div>
+      <div class="row">
+        <button onclick="mockTransfer('exact')">Chuyển đúng tiền + nội dung</button>
+        <button class="warn" onclick="mockTransfer('short')">Chuyển thiếu 10.000đ</button>
+        <button class="secondary" onclick="mockTransfer('rest')">Chuyển nốt phần còn thiếu</button>
+      </div>
+      <div class="row">
+        <input id="mAmount" type="number" placeholder="Số tiền" style="width:130px">
+        <input id="mDesc" placeholder="Nội dung chuyển khoản" style="flex:1">
+        <button class="secondary" onclick="mockTransfer('custom')">Chuyển tùy chỉnh</button>
+      </div>
+    </div>
+    <div id="realPanel" class="muted" style="display:none;margin-top:12px">
+      Server đang đối soát với <b>MB Bank thật</b>: quét QR bằng app ngân hàng và chuyển khoản thật (nên dùng đơn giá nhỏ). Server tự kiểm tra sao kê mỗi 15 giây, hoặc bấm "Tôi đã chuyển khoản".
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Lịch sử phiên của tôi <button class="secondary" style="margin-left:auto;padding:4px 10px" onclick="loadMySessions()">Tải lại</button></h2>
+    <table>
+      <thead><tr><th>#</th><th>Nội dung</th><th>Số tiền</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead>
+      <tbody id="mySessions"><tr><td colspan="5" class="muted">-</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Quản trị: giao dịch ngân hàng đã khớp</h2>
+    <div class="row">
+      <input id="adminEmail" value="admin@bookstore.vn" style="flex:1">
+      <input id="adminPassword" type="password" value="admin123" style="width:120px">
+      <button class="secondary" onclick="adminLoad()">Xem</button>
+      <button class="secondary" onclick="adminSync()">Đối soát ngay</button>
+    </div>
+    <table>
+      <thead><tr><th>Mã GD NH</th><th>Số tiền</th><th>Nội dung phiên</th><th>Kết quả</th><th>Ghi chú</th></tr></thead>
+      <tbody id="bankTx"><tr><td colspan="5" class="muted">Đăng nhập admin để xem (PAID / PARTIAL / LATE / DUPLICATE)</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="card full">
+    <h2>Nhật ký</h2>
+    <pre id="log"></pre>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const money = v => v == null ? '-' : Number(v).toLocaleString('vi-VN') + 'đ';
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let token = load('qrtest.token'), adminToken = null, current = null, pollTimer = null, tickTimer = null, mode = null;
+
+function load(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function save(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} }
+function log(msg, cls) {
+  const line = document.createElement('div');
+  if (cls) line.className = cls;
+  line.textContent = new Date().toLocaleTimeString('vi-VN') + '  ' + msg;
+  $('log').prepend(line);
+}
+
+async function api(path, { method = 'GET', body, auth = token } = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (auth) headers.Authorization = 'Bearer ' + auth;
+  let res;
+  try {
+    res = await fetch($('apiBase').value.replace(/\/$/, '') + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  } catch (e) {
+    log(`${method} ${path} → không kết nối được server (${e.message})`, 'err');
+    throw e;
+  }
+  const text = await res.text();
+  let json = null; try { json = text ? JSON.parse(text) : null; } catch {}
+  if (!res.ok) {
+    const msg = (json && (json.message + (json.data && typeof json.data === 'object' ? ' ' + JSON.stringify(json.data) : ''))) || text || res.status;
+    log(`${method} ${path} → ${res.status}: ${msg}`, 'err');
+    throw new Error(msg);
+  }
+  return json;
+}
+
+async function loadStatus() {
+  try {
+    const r = await api('/api/test/mock-bank/status', { auth: null });
+    mode = r.data.mode;
+    $('modeBadge').textContent = mode === 'MOCK' ? 'GIẢ LẬP' : 'MB BANK THẬT';
+    $('modeBadge').className = 'badge ' + mode;
+    $('accountInfo').textContent = `${r.data.bankName} · ${r.data.accountNo} · ${r.data.accountName} · phiên ${r.data.sessionMinutes} phút`;
+    $('mockPanel').style.display = mode === 'MOCK' ? '' : 'none';
+    $('realPanel').style.display = mode === 'MOCK' ? 'none' : '';
+  } catch { $('modeBadge').textContent = 'mất kết nối'; }
+}
+
+async function login() {
+  try {
+    const r = await api('/api/auth/login', { method: 'POST', auth: null, body: { usernameOrEmail: $('email').value, password: $('password').value } });
+    token = r.data.token; save('qrtest.token', token);
+    log('Đăng nhập thành công: ' + $('email').value, 'ok');
+    await afterLogin();
+  } catch {}
+}
+async function register() {
+  const email = $('email').value.trim(), name = email.split('@')[0];
+  try {
+    const r = await api('/api/auth/register', { method: 'POST', auth: null, body: {
+      username: name.replace(/[^\w.]/g, '').slice(0, 40) + Math.floor(Math.random() * 1000), email, password: $('password').value, fullName: name } });
+    token = r.data.token; save('qrtest.token', token);
+    log('Đăng ký và đăng nhập thành công: ' + email, 'ok');
+    await afterLogin();
+  } catch {}
+}
+function logout() { token = null; save('qrtest.token', null); current = null; renderSession(); $('whoami').textContent = 'Chưa đăng nhập'; $('mySessions').innerHTML = ''; }
+async function afterLogin() {
+  try {
+    const me = await api('/api/users/me').catch(() => null);
+    // Token lưu từ lần trước không còn hợp lệ (đổi DB, hết hạn) → bỏ đi, bắt đăng nhập lại
+    if (!me) { logout(); log('Phiên đăng nhập cũ không còn hợp lệ, hãy đăng nhập/đăng ký lại', 'err'); return; }
+    $('whoami').textContent = 'Đang đăng nhập: ' + (me && me.data ? (me.data.fullName || me.data.email) : $('email').value);
+  } catch {}
+  await loadActive();
+  await loadMySessions();
+}
+
+async function loadBooks() {
+  try {
+    const r = await api('/api/books?page=0&size=20', { auth: null });
+    const list = Array.isArray(r.data) ? r.data : (r.data && r.data.content) || [];
+    $('books').innerHTML = list.map(b => `
+      <tr><td>${esc(b.title)}</td><td>${money(b.salePrice ?? b.price)}</td><td>${b.stockQuantity ?? '-'}</td>
+      <td><input type="number" min="1" value="1" id="qty-${b.id}"></td>
+      <td><button onclick="createSession(${b.id})">Thanh toán QR</button></td></tr>`).join('')
+      || '<tr><td colspan="5" class="muted">Không có sách</td></tr>';
+  } catch { $('books').innerHTML = '<tr><td colspan="5" class="muted">Không tải được danh sách sách</td></tr>'; }
+}
+
+async function createSession(bookId) {
+  if (!token) return log('Hãy đăng nhập trước', 'err');
+  const body = { directItems: [{ bookId, quantity: Number($('qty-' + bookId).value) || 1 }] };
+  ['recipientName', 'phone', 'province', 'district', 'ward', 'detailAddress'].forEach(k => body[k] = $(k).value);
+  try {
+    const prev = current && current.status === 'PENDING' ? current : null;
+    const r = await api('/api/payments/qr/session', { method: 'POST', body });
+    current = r.data;
+    if (prev && prev.sessionId === current.sessionId) log(`Cùng sản phẩm → giữ phiên #${current.sessionId}, QR cũ (${current.paymentCode})`);
+    else if (prev) log(`Đổi sản phẩm → hủy phiên #${prev.sessionId} (${prev.paymentCode}), tạo phiên #${current.sessionId} nội dung ${current.paymentCode}`, 'ok');
+    else log(`Tạo phiên #${current.sessionId}: ${money(current.amount)}, nội dung ${current.paymentCode}`, 'ok');
+    renderSession(); startPolling(); loadBooks(); loadMySessions();
+  } catch {}
+}
+
+async function loadActive() {
+  try {
+    const r = await api('/api/payments/qr/session/active');
+    current = r.data; renderSession();
+    if (current) startPolling();
+  } catch {}
+}
+
+async function refreshSession(check) {
+  if (!current) return;
+  try {
+    const before = current.status;
+    const r = await api(`/api/payments/qr/session/${current.sessionId}${check ? '/check' : ''}`, { method: check ? 'POST' : 'GET' });
+    const keepImg = current.qrImage;
+    current = r.data;
+    if (!current.qrImage && current.status === 'PENDING') current.qrImage = keepImg;
+    if (before !== current.status) {
+      log(`Phiên #${current.sessionId}: ${before} → ${current.status}${current.cancelReason ? ' (' + current.cancelReason + ')' : ''}`, current.status === 'PAID' ? 'ok' : 'err');
+      loadBooks(); loadMySessions();
+    } else if (check) {
+      log(`Đã kiểm tra: phiên #${current.sessionId} vẫn ${current.status}, đã nhận ${money(current.receivedAmount)}/${money(current.amount)}`);
+    }
+    renderSession();
+  } catch {}
+}
+
+function startPolling() {
+  clearInterval(pollTimer); clearInterval(tickTimer);
+  pollTimer = setInterval(() => { if (current && current.status === 'PENDING') refreshSession(false); else clearInterval(pollTimer); }, 3000);
+  tickTimer = setInterval(renderTimer, 1000);
+}
+
+function renderTimer() {
+  if (!current) return;
+  const left = current.status === 'PENDING' ? Math.max(0, Math.round((current._deadline - Date.now()) / 1000)) : 0;
+  $('timer').textContent = current.status === 'PENDING' ? `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}` : '--:--';
+  $('timer').className = 'timer' + (left < 60 ? ' low' : '');
+}
+
+function renderSession() {
+  const has = !!current;
+  $('sessionEmpty').style.display = has ? 'none' : '';
+  $('sessionBox').style.display = has ? '' : 'none';
+  if (!has) return;
+  const s = current, pending = s.status === 'PENDING';
+  if (!s._deadline) s._deadline = Date.now() + (s.remainingSeconds || 0) * 1000; // theo đồng hồ server
+  $('qrBox').innerHTML = pending && s.qrImage ? `<img src="${s.qrImage}" alt="QR">` : `<span class="muted">${pending ? 'Đang tải QR…' : 'QR không còn hiệu lực'}</span>`;
+  $('sessionStatus').textContent = s.status; $('sessionStatus').className = 'badge ' + s.status;
+  $('sBank').textContent = `${s.bankName} (${s.bankBin})`;
+  $('sAcc').textContent = s.accountNo; $('sName').textContent = s.accountName;
+  $('sAmount').textContent = money(s.amount); $('sCode').textContent = s.paymentCode;
+  $('sReceived').textContent = money(s.receivedAmount);
+  $('sOrder').textContent = s.orderCode;
+  $('sItems').textContent = (s.items || []).join(', ');
+  $('btnCheck').disabled = $('btnCancel').disabled = !pending;
+  const banner = $('resultBanner');
+  banner.className = 'result-banner' + (pending ? '' : ' show ' + s.status);
+  banner.textContent = s.status === 'PAID' ? `✅ Thanh toán thành công lúc ${new Date(s.paidAt).toLocaleTimeString('vi-VN')} · mã GD ngân hàng ${s.bankRefNo}`
+    : s.status === 'EXPIRED' ? '⌛ Hết hạn thanh toán, đơn đã bị hủy và hoàn kho'
+    : s.status === 'CANCELLED' ? '✖ Phiên đã hủy: ' + (s.cancelReason || '') : '';
+  if (mode === 'MOCK') { $('mAmount').value = s.amount; $('mDesc').value = s.paymentCode; }
+  renderTimer();
+}
+
+async function checkNow() { await refreshSession(true); }
+
+async function cancelSession() {
+  if (!current) return;
+  try {
+    const r = await api(`/api/payments/qr/session/${current.sessionId}/cancel`, { method: 'POST' });
+    current = r.data; log(`Đã hủy phiên #${current.sessionId}, đơn ${current.orderCode} hủy + hoàn kho`, 'ok');
+    renderSession(); loadBooks(); loadMySessions();
+  } catch {}
+}
+
+async function mockTransfer(kind) {
+  if (!current && kind !== 'custom') return log('Chưa có phiên để chuyển tiền', 'err');
+  let amount, description;
+  const remaining = current ? Number(current.amount) - Number(current.receivedAmount || 0) : 0;
+  if (kind === 'exact') { amount = Number(current.amount); description = current.paymentCode; }
+  else if (kind === 'short') { amount = Math.max(1, Number(current.amount) - 10000); description = current.paymentCode; }
+  else if (kind === 'rest') { amount = remaining > 0 ? remaining : Number(current.amount); description = current.paymentCode; }
+  else { amount = Number($('mAmount').value); description = $('mDesc').value; }
+  // Giống app ngân hàng thật: nội dung bị đổi chữ thường, chèn dấu cách (server tự thêm tên người chuyển)
+  const fancy = description.toLowerCase().replace(/^(.{5})/, '$1 ');
+  try {
+    const r = await api('/api/test/mock-bank/transfer', { method: 'POST', auth: null, body: { amount, description: kind === 'custom' ? description : fancy, senderName: 'NGUYEN VAN A' } });
+    log(`🏦 Giả lập chuyển ${money(amount)} · "${r.data.description}" · mã GD ${r.data.refNo}`, 'ok');
+    setTimeout(() => refreshSession(true), 300);
+  } catch {}
+}
+
+async function loadMySessions() {
+  if (!token) return;
+  try {
+    const r = await api('/api/payments/qr/sessions');
+    $('mySessions').innerHTML = (r.data || []).map(s => `
+      <tr><td>${s.sessionId}</td><td><span class="code" style="font-size:14px">${esc(s.paymentCode)}</span><div class="muted">${esc((s.items || []).join(', '))}</div></td>
+      <td>${money(s.amount)}<div class="muted">nhận ${money(s.receivedAmount)}</div></td>
+      <td><span class="badge ${s.status}">${s.status}</span></td><td class="muted">${esc(s.cancelReason || (s.bankRefNo ? 'GD ' + s.bankRefNo : ''))}</td></tr>`).join('')
+      || '<tr><td colspan="5" class="muted">Chưa có phiên nào</td></tr>';
+  } catch {}
+}
+
+async function adminLogin() {
+  if (adminToken) return adminToken;
+  const r = await api('/api/auth/login', { method: 'POST', auth: null, body: { usernameOrEmail: $('adminEmail').value, password: $('adminPassword').value } });
+  return adminToken = r.data.token;
+}
+async function adminLoad() {
+  try {
+    const r = await api('/api/payments/qr/admin/bank-transactions', { auth: await adminLogin() });
+    $('bankTx').innerHTML = (r.data || []).map(t => `
+      <tr><td class="muted">${esc(t.refNo)}</td><td>${money(t.amount)}</td><td><span class="code" style="font-size:14px">${esc(t.paymentCode)}</span><div class="muted">${esc(t.orderCode)}</div></td>
+      <td><span class="badge ${t.result}">${t.result}</span></td><td class="muted">${esc(t.note)}</td></tr>`).join('')
+      || '<tr><td colspan="5" class="muted">Chưa có giao dịch nào khớp</td></tr>';
+  } catch { adminToken = null; }
+}
+async function adminSync() {
+  try {
+    const r = await api('/api/payments/qr/admin/sync', { method: 'POST', auth: await adminLogin() });
+    log(`Đối soát: ${r.data.ok ? 'OK' : 'LỖI ' + r.data.error} · đọc ${r.data.fetched} GD, khớp mới ${r.data.matched}`, r.data.ok ? 'ok' : 'err');
+    adminLoad(); refreshSession(false);
+  } catch {}
+}
+
+function copyText(id) { copyRaw($(id).textContent); }
+function copyRaw(v) { if (v != null) navigator.clipboard?.writeText(String(v)).then(() => log('Đã copy: ' + v)); }
+
+async function refreshAll() {
+  await loadStatus();
+  await loadBooks();
+  if (token) await afterLogin();
+}
+refreshAll();
+</script>
+</body>
+</html>

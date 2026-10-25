@@ -7,7 +7,11 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class User {
 
     @Id
@@ -38,19 +42,24 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
+    @Builder.Default
     private Role role = Role.CUSTOMER;
 
     @Column(name = "loyalty_points")
+    @Builder.Default
     private Integer loyaltyPoints = 0;
 
     @Column(name = "has_set_preferences")
+    @Builder.Default
     private Boolean hasSetPreferences = false;
 
     @Column(name = "preferences_updated_at")
     private LocalDateTime preferencesUpdatedAt;
 
     @Enumerated(EnumType.STRING)
+    @Builder.Default
     private Status status = Status.ACTIVE;
+
 
     @Column(name = "last_login_at")
     private LocalDateTime lastLoginAt;
