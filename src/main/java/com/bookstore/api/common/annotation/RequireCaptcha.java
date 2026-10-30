@@ -12,8 +12,5 @@ import java.lang.annotation.Target;
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface RequireCaptcha {
-    /**
-     * Tên action cần verify trên Google reCAPTCHA (vd: login, register)
-     */
     String action() default "";
 }

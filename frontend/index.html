@@ -32,15 +32,9 @@
             <div class="container d-flex justify-between items-center py-1 text-xs">
                 <div class="d-flex items-center gap-2">
                     <span class="badge badge-accent animate-pulse">🔥 Ưu Đãi Hội Viên</span>
-                    <span>Nhập mã <strong>BOOK20</strong> giảm ngay 20K cho đơn từ 200K • Miễn phí vận chuyển toàn quốc đơn từ 350K</span>
+                    <span>Nhập mã <strong>WELCOME10</strong> giảm 10% (tối đa 50K) cho đơn từ 200K • Miễn phí vận chuyển đơn từ 300K</span>
                 </div>
                 <div class="d-flex items-center gap-4 text-muted">
-                    <div class="mode-toggle-switch" id="role-switcher-btn" title="Chuyển đổi giữa Giao diện Khách hàng & Quản trị">
-                        <span class="role-badge" id="current-role-badge"><i class="fa-solid fa-user-tag"></i> Giao diện Khách hàng</span>
-                        <button class="btn btn-xs btn-outline-light" id="btn-toggle-role">
-                            <i class="fa-solid fa-repeat"></i> Đổi sang Quản trị
-                        </button>
-                    </div>
                     <div class="theme-switch-wrapper">
                         <button id="theme-toggle-btn" class="icon-btn" title="Chuyển đổi chế độ Sáng / Tối">
                             <i class="fa-solid fa-moon"></i>
@@ -86,11 +80,11 @@
                     <div class="footer-col">
                         <h4 class="footer-title">Khám Phá Sách</h4>
                         <ul class="footer-links">
-                            <li><a href="#/catalog?sort=new">Sách Mới Phát Hành</a></li>
-                            <li><a href="#/catalog?sort=bestseller">Sách Bán Chạy Nhất</a></li>
+                            <li><a href="#/catalog?sort=newest">Sách Mới Phát Hành</a></li>
+                            <li><a href="#/catalog?sort=sales_desc">Sách Bán Chạy Nhất</a></li>
                             <li><a href="#/recommendations">Sách Đề Xuất Cho Bạn</a></li>
-                            <li><a href="#/catalog?category=cntt">Công Nghệ & Lập Trình</a></li>
-                            <li><a href="#/catalog?category=kinhte">Kinh Tế & Khởi Nghiệp</a></li>
+                            <li><a href="#/catalog?category=tam-ly-ky-nang-song">Tâm Lý & Kỹ Năng Sống</a></li>
+                            <li><a href="#/catalog?category=kinh-doanh">Kinh Doanh & Khởi Nghiệp</a></li>
                         </ul>
                     </div>
                     <div class="footer-col">
@@ -204,7 +198,6 @@
     <div id="toast-container" class="toast-container"></div>
 
     <!-- Core Scripts -->
-    <script src="js/mock-data.js"></script>
     <script src="js/api.js"></script>
     <script src="js/store.js"></script>
     <script src="js/components/toast.js"></script>

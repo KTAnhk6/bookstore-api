@@ -5,11 +5,12 @@
  */
 
 const API_CONFIG = {
-    BASE_URL: 'http://localhost:8080/api',
+    BASE_URL: (window.location.port === '3000') ? 'http://localhost:8080/api' : '/api',
     TIMEOUT: 20000,
     TOKEN_KEY: 'booknest_jwt_token',
     USER_KEY: 'booknest_user_profile'
 };
+const API_BASE_URL = API_CONFIG.BASE_URL;
 
 const apiClient = axios.create({
     baseURL: API_CONFIG.BASE_URL,
@@ -31,7 +32,7 @@ apiClient.interceptors.response.use(
         let message = 'Đã có lỗi xảy ra khi kết nối máy chủ!';
 
         if (!error.response) {
-            message = 'Không kết nối được máy chủ (http://localhost:8080). Hãy chắc chắn backend đang chạy.';
+            message = 'Không kết nối được máy chủ. Hãy chắc chắn backend đang chạy.';
         } else if (body && body.data && typeof body.data === 'object' && !Array.isArray(body.data)) {
             message = Object.values(body.data).join('. ') || body.message || message;
         } else if (body && body.message) {
@@ -210,7 +211,19 @@ const Adapter = {
     },
 
     category(c) {
-        return { id: idOf(c.id), name: c.name, slug: c.slug, description: c.description || '', icon: c.icon || '', image: c.image || '', displayOrder: c.displayOrder || 0, active: c.active !== false };
+        return {
+            id: idOf(c.id),
+            name: c.name,
+            slug: c.slug,
+            description: c.description || '',
+            icon: c.icon || '',
+            image: c.image || '',
+            displayOrder: c.displayOrder || 0,
+            active: c.active !== false,
+            parentId: c.parentId ? idOf(c.parentId) : null,
+            parentName: c.parentName || null,
+            children: Array.isArray(c.children) ? c.children.map(Adapter.category) : []
+        };
     },
     author(a) {
         return { ...a, id: idOf(a.id) };
@@ -235,21 +248,15 @@ const clean = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) => 
  * ------------------------------------------------------------------------- */
 const ApiService = {
     auth: {
-        async login(usernameOrEmail, password, captchaToken = null) {
-            const headers = captchaToken ? { 'X-Captcha-Token': captchaToken } : {};
-            const res = await apiClient.post('/auth/login', { usernameOrEmail, password, captchaToken }, { headers });
+        async login(usernameOrEmail, password) {
+            const res = await apiClient.post('/auth/login', { usernameOrEmail, password });
             return { token: res.data.token, user: Adapter.user(res.data.user) };
         },
-        async register(payload, captchaToken = null) {
-            const token = captchaToken || payload.captchaToken;
-            const headers = token ? { 'X-Captcha-Token': token } : {};
-            const res = await apiClient.post('/auth/register', { ...payload, captchaToken: token }, { headers });
+        async register(payload) {
+            const res = await apiClient.post('/auth/register', payload);
             return res.data;
         },
-        forgotPassword: (emailOrUsername, captchaToken = null) => {
-            const headers = captchaToken ? { 'X-Captcha-Token': captchaToken } : {};
-            return apiClient.post('/auth/forgot-password', { emailOrUsername, captchaToken }, { headers });
-        },
+        forgotPassword: (emailOrUsername) => apiClient.post('/auth/forgot-password', { emailOrUsername }),
         resetPassword: (token, newPassword) => apiClient.post('/auth/reset-password', { token, newPassword }),
         async me() {
             const res = await apiClient.get('/auth/me');
@@ -297,6 +304,7 @@ const ApiService = {
 
     categories: {
         async list() { return ((await apiClient.get('/categories')).data || []).map(Adapter.category); },
+        async tree() { return ((await apiClient.get('/categories/tree')).data || []).map(Adapter.category); },
         async create(body) { return Adapter.category((await apiClient.post('/categories', body)).data); },
         async update(id, body) { return Adapter.category((await apiClient.put(`/categories/${id}`, body)).data); },
         remove: (id) => apiClient.delete(`/categories/${id}`)
@@ -393,7 +401,44 @@ const ApiService = {
         async updateCoupon(id, body) { return Adapter.coupon((await apiClient.put(`/admin/coupons/${id}`, body)).data); },
         async qrSessions() { return ((await apiClient.get('/payments/qr/admin/sessions')).data || []).map(Adapter.session); },
         async bankTransactions() { return (await apiClient.get('/payments/qr/admin/bank-transactions')).data || []; },
-        syncBank: () => apiClient.post('/payments/qr/admin/sync')
+        syncBank: () => apiClient.post('/payments/qr/admin/sync'),
+        async revenueReport(params = {}) {
+            return (await apiClient.get('/admin/reports/revenue', { params: clean(params) })).data;
+        },
+        async downloadRevenueExcel(params = {}) {
+            const token = store.token;
+            const query = new URLSearchParams(clean(params)).toString();
+            const res = await fetch(`${API_BASE_URL}/admin/reports/revenue/excel${query ? '?' + query : ''}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error('Không thể tải file báo cáo Excel');
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bao-cao-doanh-thu-${new Date().toISOString().slice(0, 10)}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+        },
+        async downloadRevenuePdf(params = {}) {
+            const token = store.token;
+            const query = new URLSearchParams(clean(params)).toString();
+            const res = await fetch(`${API_BASE_URL}/admin/reports/revenue/pdf${query ? '?' + query : ''}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error('Không thể tải file báo cáo PDF');
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bao-cao-doanh-thu-${new Date().toISOString().slice(0, 10)}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+        }
     },
 
     async uploadImage(file) {

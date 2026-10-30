@@ -81,8 +81,6 @@ class VisualCaptcha {
     validate(inputCode) {
         if (!inputCode) return false;
         return inputCode.trim().toUpperCase() === this.currentCode.toUpperCase();
-    }
-
     /**
      * Lấy token Captcha bảo mật để gửi kèm payload API auth
      */
@@ -107,3 +105,4 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = VisualCaptcha;
 }
+

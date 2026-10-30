@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BookNest - Nhà Sách Trực Tuyến & Hệ Thống Quản Lý Tri Thức</title>
+    <meta name="description" content="Khám phá hàng ngàn đầu sách hay với gợi ý thông minh theo sở thích, giao hàng nhanh chóng, thanh toán VietQR tiện lợi.">
+    
+    <!-- Google Fonts: Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Axios CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+    <!-- Custom CSS Stylesheets -->
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/customer.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="css/luxury-enhancements.css">
+</head>
+<body>
+    <!-- App Container -->
+    <div id="app" class="app-layout">
+        <!-- Top Notification / Announcement Bar -->
+        <div class="top-announcement-bar">
+            <div class="container d-flex justify-between items-center py-1 text-xs">
+                <div class="d-flex items-center gap-2">
+                    <span class="badge badge-accent animate-pulse">🔥 Ưu Đãi Hội Viên</span>
+                    <span>Nhập mã <strong>BOOK20</strong> giảm ngay 20K cho đơn từ 200K • Miễn phí vận chuyển toàn quốc đơn từ 350K</span>
+                </div>
+                <div class="d-flex items-center gap-4 text-muted">
+                    <div class="mode-toggle-switch" id="role-switcher-btn" title="Chuyển đổi giữa Giao diện Khách hàng & Quản trị">
+                        <span class="role-badge" id="current-role-badge"><i class="fa-solid fa-user-tag"></i> Giao diện Khách hàng</span>
+                        <button class="btn btn-xs btn-outline-light" id="btn-toggle-role">
+                            <i class="fa-solid fa-repeat"></i> Đổi sang Quản trị
+                        </button>
+                    </div>
+                    <div class="theme-switch-wrapper">
+                        <button id="theme-toggle-btn" class="icon-btn" title="Chuyển đổi chế độ Sáng / Tối">
+                            <i class="fa-solid fa-moon"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Header / Navigation -->
+        <header id="main-header" class="site-header sticky-header">
+            <!-- Rendered dynamically by navbar.js -->
+        </header>
+
+        <!-- Main Content View Area -->
+        <main id="main-view" class="main-content-container">
+            <!-- Dynamic page views injected here via router -->
+            <div class="page-loading-spinner" id="global-loader">
+                <div class="spinner-ring"></div>
+                <p class="mt-3 text-muted">Đang tải trải nghiệm đọc sách tuyệt vời...</p>
+            </div>
+        </main>
+
+        <!-- Main Footer -->
+        <footer id="main-footer" class="site-footer">
+            <div class="container footer-content py-8">
+                <div class="footer-grid">
+                    <div class="footer-col brand-col">
+                        <div class="brand-logo mb-3">
+                            <span class="logo-icon"><i class="fa-solid fa-book-bookmark"></i></span>
+                            <span class="logo-text">Book<span class="gradient-text">Nest</span></span>
+                        </div>
+                        <p class="text-sm text-muted mb-4">
+                            Nền tảng mua sắm sách trực tuyến hàng đầu Việt Nam. Tận hưởng tri thức nhân loại với trải nghiệm gợi ý sách thông minh theo sở thích và thanh toán VietQR một chạm.
+                        </p>
+                        <div class="social-links d-flex gap-3">
+                            <a href="#" class="social-icon" title="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
+                            <a href="#" class="social-icon" title="Instagram"><i class="fa-brands fa-instagram"></i></a>
+                            <a href="#" class="social-icon" title="Youtube"><i class="fa-brands fa-youtube"></i></a>
+                            <a href="#" class="social-icon" title="Tiktok"><i class="fa-brands fa-tiktok"></i></a>
+                        </div>
+                    </div>
+                    <div class="footer-col">
+                        <h4 class="footer-title">Khám Phá Sách</h4>
+                        <ul class="footer-links">
+                            <li><a href="#/catalog?sort=new">Sách Mới Phát Hành</a></li>
+                            <li><a href="#/catalog?sort=bestseller">Sách Bán Chạy Nhất</a></li>
+                            <li><a href="#/recommendations">Sách Đề Xuất Cho Bạn</a></li>
+                            <li><a href="#/catalog?category=cntt">Công Nghệ & Lập Trình</a></li>
+                            <li><a href="#/catalog?category=kinhte">Kinh Tế & Khởi Nghiệp</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-col">
+                        <h4 class="footer-title">Hỗ Trợ Khách Hàng</h4>
+                        <ul class="footer-links">
+                            <li><a href="#/profile">Theo Dõi Đơn Hàng</a></li>
+                            <li><a href="javascript:void(0)" onclick="app.showToast('Chính sách đổi trả 7 ngày miễn phí', 'info')">Chính Sách Đổi Trả</a></li>
+                            <li><a href="javascript:void(0)" onclick="app.showToast('Hỗ trợ giao hàng siêu tốc 2H tại TP.HCM và Hà Nội', 'info')">Phương Thức Vận Chuyển</a></li>
+                            <li><a href="javascript:void(0)" onclick="app.showToast('Hỗ trợ thanh toán VietQR / Thẻ / COD', 'info')">Hướng Dẫn Thanh Toán VietQR</a></li>
+                            <li><a href="javascript:void(0)" onclick="app.openFavoriteModal()">Cập Nhật 5 Thể Loại Yêu Thích</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-col">
+                        <h4 class="footer-title">Kết Nối Với Chúng Tôi</h4>
+                        <div class="contact-info-list text-sm text-muted">
+                            <p><i class="fa-solid fa-location-dot mr-2 text-primary"></i> 123 Đường Tri Thức, Quận 1, TP. Hồ Chí Minh</p>
+                            <p><i class="fa-solid fa-phone mr-2 text-primary"></i> Hotline: 1900 6868 (8:00 - 21:00)</p>
+                            <p><i class="fa-solid fa-envelope mr-2 text-primary"></i> support@booknest.vn</p>
+                            <div class="payment-badges mt-3">
+                                <span class="badge-payment"><i class="fa-solid fa-qrcode mr-1"></i> VietQR 24/7</span>
+                                <span class="badge-payment"><i class="fa-solid fa-truck mr-1"></i> COD Tiền mặt</span>
+                                <span class="badge-payment"><i class="fa-solid fa-shield-halved mr-1"></i> Bảo mật 100%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="footer-bottom mt-6 pt-4 text-center text-xs text-muted">
+                    <p>© 2026 BookNest. Dự án Bài tập lớn Môn Học - Phát triển Hệ thống Web & API Bookstore.</p>
+                </div>
+            </div>
+        </footer>
+
+        <!-- Bottom Navigation Bar for Mobile -->
+        <nav class="mobile-bottom-nav">
+            <a href="#/" class="mobile-nav-item active" id="mob-nav-home">
+                <i class="fa-solid fa-house"></i>
+                <span>Trang chủ</span>
+            </a>
+            <a href="#/catalog" class="mobile-nav-item" id="mob-nav-catalog">
+                <i class="fa-solid fa-layer-group"></i>
+                <span>Danh mục</span>
+            </a>
+            <a href="#/recommendations" class="mobile-nav-item" id="mob-nav-recommend">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                <span>Đề xuất</span>
+            </a>
+            <a href="#/cart" class="mobile-nav-item" id="mob-nav-cart">
+                <div class="icon-with-badge">
+                    <i class="fa-solid fa-cart-shopping"></i>
+                    <span class="badge cart-count-badge">0</span>
+                </div>
+                <span>Giỏ hàng</span>
+            </a>
+            <a href="#/profile" class="mobile-nav-item" id="mob-nav-profile">
+                <i class="fa-solid fa-user"></i>
+                <span>Cá nhân</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Global Modals Container -->
+    <div id="modal-container" class="modal-overlay hidden"></div>
+
+    <!-- Quick View Book Modal -->
+    <div id="quick-view-modal" class="modal-overlay hidden">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-header">
+                <h3 class="modal-title" id="quick-view-title">Chi Tiết Sách</h3>
+                <button class="modal-close-btn" onclick="modalManager.close('quick-view-modal')"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" id="quick-view-body">
+                <!-- Content injected by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Favorite Categories Selection Modal (Popup chọn 5 thể loại yêu thích) -->
+    <div id="favorite-genres-modal" class="modal-overlay hidden">
+        <div class="modal-dialog modal-md favorite-modal-content">
+            <div class="modal-header favorite-modal-header">
+                <div class="d-flex items-center gap-3">
+                    <div class="favorite-icon-badge"><i class="fa-solid fa-heart-pulse"></i></div>
+                    <div>
+                        <h3 class="modal-title font-bold">Chọn 5 Thể Loại Bạn Yêu Thích</h3>
+                        <p class="text-xs text-muted">BookNest sẽ cá nhân hóa gợi ý những cuốn sách hay nhất dành riêng cho bạn!</p>
+                    </div>
+                </div>
+                <button class="modal-close-btn" onclick="modalManager.close('favorite-genres-modal')"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="favorite-counter-bar mb-3">
+                    <span class="text-sm font-semibold">Đã chọn: <strong id="fav-selected-count" class="text-primary font-bold">0</strong> / 5 thể loại</span>
+                    <div class="progress-bar-container">
+                        <div class="progress-fill" id="fav-progress-fill" style="width: 0%;"></div>
+                    </div>
+                </div>
+                <div class="genres-grid-selection" id="favorite-genres-list">
+                    <!-- Dynamic genres with icons rendered here -->
+                </div>
+            </div>
+            <div class="modal-footer d-flex justify-between items-center">
+                <button class="btn btn-ghost btn-sm text-muted" onclick="favoriteGenresModal.skip()">Để sau</button>
+                <button class="btn btn-primary" id="btn-save-favorites" onclick="favoriteGenresModal.save()" disabled>
+                    <i class="fa-solid fa-check mr-1"></i> Lưu Sở Thích & Xem Gợi Ý
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Core Scripts -->
+    <script src="js/mock-data.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/store.js"></script>
+    <script src="js/components/toast.js"></script>
+    <script src="js/components/modal.js"></script>
+    <script src="js/components/captcha.js"></script>
+    <script src="js/components/chart.js"></script>
+    <script src="js/components/navbar.js"></script>
+    
+    <!-- Page Handlers -->
+    <script src="js/pages/home.js"></script>
+    <script src="js/pages/catalog.js"></script>
+    <script src="js/pages/book-detail.js"></script>
+    <script src="js/pages/cart.js"></script>
+    <script src="js/pages/checkout.js"></script>
+    <script src="js/pages/auth.js"></script>
+    <script src="js/pages/profile.js"></script>
+    <script src="js/pages/wishlist.js"></script>
+    <script src="js/pages/recommendations.js"></script>
+    <script src="js/pages/favorite-genres-modal.js"></script>
+    <script src="js/pages/admin.js"></script>
+    
+    <!-- Main Application Entrypoint -->
+    <script src="js/app.js"></script>
+</body>
+</html>

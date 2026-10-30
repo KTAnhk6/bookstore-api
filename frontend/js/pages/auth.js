@@ -7,6 +7,7 @@
 const authPage = {
     activeTab: 'login',
     captchaInstance: null,
+    resetToken: '',
 
     render(container) {
         container.innerHTML = `
@@ -58,7 +59,7 @@ const authPage = {
                                 </div>
                                 <div class="text-xs">
                                     <strong class="text-white d-block font-bold">Ưu Đãi Hội Viên Độc Quyền</strong>
-                                    <span style="color: #cbd5e1;">Nhập mã <strong>BOOK20</strong> giảm 20K & FreeShip toàn quốc</span>
+                                    <span style="color: #cbd5e1;">Nhập mã <strong>WELCOME10</strong> giảm 10% & FreeShip đơn từ 300K</span>
                                 </div>
                             </div>
 
@@ -103,28 +104,13 @@ const authPage = {
                             </p>
                         </div>
 
-                        <!-- Quick Demo Account Chips -->
-                        <div class="p-3 mb-4 rounded-lg" style="background: var(--bg-subtle); border: 1px solid var(--border-color);">
-                            <div class="d-flex items-center justify-between flex-wrap gap-2">
-                                <span class="text-xs font-bold text-muted"><i class="fa-solid fa-bolt text-accent mr-1"></i> Đăng nhập mẫu nhanh:</span>
-                                <div class="d-flex gap-2">
-                                    <button class="demo-account-chip demo-chip-user" onclick="authPage.fillDemo('quang@booknest.vn', '123456')">
-                                        <i class="fa-solid fa-user"></i> Khách hàng (Quang)
-                                    </button>
-                                    <button class="demo-account-chip demo-chip-admin" onclick="authPage.fillDemo('admin@booknest.vn', 'admin123')">
-                                        <i class="fa-solid fa-shield-halved"></i> Quản trị (Minh Anh)
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
                         <!-- Form: Login -->
                         <form id="login-form" class="${this.activeTab === 'login' ? '' : 'd-none'}" onsubmit="authPage.handleLogin(event)">
                             <div class="form-group">
-                                <label class="form-label">Email tài khoản <span class="required-mark">*</span></label>
+                                <label class="form-label">Email hoặc tên đăng nhập <span class="required-mark">*</span></label>
                                 <div class="input-with-icon">
                                     <i class="fa-regular fa-envelope input-icon"></i>
-                                    <input type="email" id="login-email" class="form-input" placeholder="nhapemail@domain.com" required value="quang@booknest.vn">
+                                    <input type="text" id="login-email" class="form-input" placeholder="email@domain.com hoặc tên đăng nhập" required autocomplete="username">
                                 </div>
                                 <div class="form-feedback d-none" id="err-login-email"></div>
                             </div>
@@ -136,7 +122,7 @@ const authPage = {
                                 </div>
                                 <div class="password-input-wrap input-with-icon">
                                     <i class="fa-solid fa-lock input-icon"></i>
-                                    <input type="password" id="login-password" class="form-input" placeholder="Nhập mật khẩu..." required value="123456">
+                                    <input type="password" id="login-password" class="form-input" placeholder="Nhập mật khẩu..." required autocomplete="current-password">
                                     <button type="button" class="password-toggle-btn" onclick="authPage.togglePasswordVisibility('login-password', this)">
                                         <i class="fa-regular fa-eye"></i>
                                     </button>
@@ -161,7 +147,7 @@ const authPage = {
 
                             <div class="d-flex items-center justify-between mb-4 text-xs">
                                 <label class="form-checkbox-label">
-                                    <input type="checkbox" checked> Ghi nhớ đăng nhập trên thiết bị này
+                                    <input type="checkbox" checked disabled> Ghi nhớ đăng nhập trên thiết bị này
                                 </label>
                             </div>
 
@@ -172,11 +158,20 @@ const authPage = {
 
                         <!-- Form: Register -->
                         <form id="register-form" class="${this.activeTab === 'register' ? '' : 'd-none'}" onsubmit="authPage.handleRegister(event)">
-                            <div class="form-group">
-                                <label class="form-label">Họ và tên của bạn <span class="required-mark">*</span></label>
-                                <div class="input-with-icon">
-                                    <i class="fa-regular fa-user input-icon"></i>
-                                    <input type="text" id="reg-name" class="form-input" placeholder="Ví dụ: Trịnh Quang" required>
+                            <div class="d-grid" style="grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                                <div class="form-group">
+                                    <label class="form-label">Họ và tên <span class="required-mark">*</span></label>
+                                    <div class="input-with-icon">
+                                        <i class="fa-regular fa-user input-icon"></i>
+                                        <input type="text" id="reg-name" class="form-input" placeholder="Ví dụ: Trịnh Quang" required maxlength="100">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Tên đăng nhập <span class="required-mark">*</span></label>
+                                    <div class="input-with-icon">
+                                        <i class="fa-solid fa-at input-icon"></i>
+                                        <input type="text" id="reg-username" class="form-input" placeholder="3-50 ký tự, không dấu" required minlength="3" maxlength="50" pattern="[A-Za-z0-9_.]+" title="Chỉ gồm chữ không dấu, số, dấu gạch dưới và dấu chấm" autocomplete="username">
+                                    </div>
                                 </div>
                             </div>
 
@@ -190,10 +185,10 @@ const authPage = {
                                 </div>
 
                                 <div class="form-group">
-                                    <label class="form-label">Số điện thoại <span class="required-mark">*</span></label>
+                                    <label class="form-label">Số điện thoại</label>
                                     <div class="input-with-icon">
                                         <i class="fa-solid fa-phone input-icon"></i>
-                                        <input type="tel" id="reg-phone" class="form-input" placeholder="0912 345 678" required>
+                                        <input type="tel" id="reg-phone" class="form-input" placeholder="0912345678" pattern="[0-9]{9,11}" title="9-11 chữ số">
                                     </div>
                                 </div>
                             </div>
@@ -252,10 +247,10 @@ const authPage = {
                         <!-- Form: Forgot Password -->
                         <form id="forgot-password-form" class="${this.activeTab === 'forgot-password' ? '' : 'd-none'}" onsubmit="authPage.handleForgotPassword(event)">
                             <div class="form-group">
-                                <label class="form-label">Email tài khoản cần khôi phục <span class="required-mark">*</span></label>
+                                <label class="form-label">Email hoặc tên đăng nhập cần khôi phục <span class="required-mark">*</span></label>
                                 <div class="input-with-icon">
                                     <i class="fa-regular fa-envelope input-icon"></i>
-                                    <input type="email" id="forgot-email" class="form-input" placeholder="nhapemail@domain.com" required>
+                                    <input type="text" id="forgot-email" class="form-input" placeholder="email@domain.com hoặc tên đăng nhập" required>
                                 </div>
                             </div>
                             <button type="submit" class="btn btn-primary btn-block btn-lg mt-3">
@@ -268,6 +263,14 @@ const authPage = {
 
                         <!-- Form: Reset Password -->
                         <form id="reset-password-form" class="${this.activeTab === 'reset-password' ? '' : 'd-none'}" onsubmit="authPage.handleResetPassword(event)">
+                            <div class="form-group">
+                                <label class="form-label">Mã khôi phục <span class="required-mark">*</span></label>
+                                <div class="input-with-icon">
+                                    <i class="fa-solid fa-key input-icon"></i>
+                                    <input type="text" id="reset-token" class="form-input text-uppercase font-bold" placeholder="Mã gồm 10 ký tự" required value="${esc(this.resetToken)}">
+                                </div>
+                                <div class="text-xs text-muted mt-1">Hệ thống chưa gắn dịch vụ email nên mã được hiển thị ngay sau khi bạn yêu cầu khôi phục.</div>
+                            </div>
                             <div class="form-group">
                                 <label class="form-label">Mật khẩu mới <span class="required-mark">*</span></label>
                                 <div class="password-input-wrap input-with-icon">
@@ -296,16 +299,6 @@ const authPage = {
                             </div>
                         </form>
 
-                        <!-- Social Login Divider -->
-                        <div class="divider-with-text">Hoặc đăng nhập nhanh với</div>
-                        <div class="d-flex gap-2">
-                            <button type="button" class="social-login-btn" onclick="appToast.info('Đang kết nối cổng Google Auth...');">
-                                <i class="fa-brands fa-google text-danger"></i> Google
-                            </button>
-                            <button type="button" class="social-login-btn" onclick="appToast.info('Đang kết nối cổng Facebook Auth...');">
-                                <i class="fa-brands fa-facebook text-primary"></i> Facebook
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -383,22 +376,10 @@ const authPage = {
         }
     },
 
-    fillDemo(email, pass) {
-        if (this.activeTab !== 'login') {
-            this.activeTab = 'login';
-            this.render(document.getElementById('main-view'));
-        }
-        const emailInput = document.getElementById('login-email');
-        const passInput = document.getElementById('login-password');
-        if (emailInput) emailInput.value = email;
-        if (passInput) passInput.value = pass;
-        appToast.info(`Đã điền tài khoản: ${email}`);
-    },
-
     async handleLogin(e) {
         e.preventDefault();
         const email = document.getElementById('login-email').value.trim();
-        const pass = document.getElementById('login-password').value.trim();
+        const pass = document.getElementById('login-password').value;
         const captchaInput = document.getElementById('login-captcha-input').value.trim();
 
         // Validate Captcha
@@ -410,33 +391,25 @@ const authPage = {
             document.getElementById('err-login-captcha').classList.add('d-none');
         }
 
-        const captchaToken = this.captchaInstance ? this.captchaInstance.getToken() : null;
-
         try {
-            const res = await ApiService.auth.login(email, pass, captchaToken);
-            store.setUser(res.user, res.token);
+            const res = await ApiService.auth.login(email, pass);
+            await store.setSession(res.user, res.token);
             appToast.success(`Chào mừng trở lại, ${res.user.name}!`, 'Đăng Nhập Thành Công');
-
-            if (res.user.role === 'ROLE_ADMIN') {
-                store.setRole('admin');
-                app.navigate('#/admin');
-            } else {
-                store.setRole('customer');
-                app.navigate('#/');
-            }
+            app.navigate(store.canAdmin ? '#/admin' : '#/');
         } catch (err) {
-            appToast.error(err.message || 'Sai email hoặc mật khẩu!');
+            appToast.error(err.message || 'Sai tên đăng nhập hoặc mật khẩu!');
             this.refreshCaptcha();
         }
     },
 
     async handleRegister(e) {
         e.preventDefault();
-        const name = document.getElementById('reg-name').value.trim();
+        const fullName = document.getElementById('reg-name').value.trim();
+        const username = document.getElementById('reg-username').value.trim();
         const email = document.getElementById('reg-email').value.trim();
         const phone = document.getElementById('reg-phone').value.trim();
-        const pass = document.getElementById('reg-password').value.trim();
-        const repass = document.getElementById('reg-repassword').value.trim();
+        const pass = document.getElementById('reg-password').value;
+        const repass = document.getElementById('reg-repassword').value;
         const captchaInput = document.getElementById('reg-captcha-input').value.trim();
 
         if (pass !== repass) {
@@ -454,14 +427,14 @@ const authPage = {
             document.getElementById('err-reg-captcha').classList.add('d-none');
         }
 
-        const captchaToken = this.captchaInstance ? this.captchaInstance.getToken() : null;
-
         try {
-            const res = await ApiService.auth.register({ name, email, phone, password: pass }, captchaToken);
-            store.setUser(res.user, res.token);
+            // Đăng ký xong backend trả token, đăng nhập luôn
+            await ApiService.auth.register({ username, fullName, email, phone: phone || undefined, password: pass });
+            const res = await ApiService.auth.login(username, pass);
+            await store.setSession(res.user, res.token);
             appToast.success('Đăng ký tài khoản thành công!', 'Chúc Mừng');
 
-            // Open 5 favorite categories onboarding modal
+            // Mở hộp chọn thể loại yêu thích cho người mới
             setTimeout(() => {
                 favoriteGenresModal.open();
             }, 600);
@@ -473,29 +446,37 @@ const authPage = {
         }
     },
 
-    handleForgotPassword(e) {
+    async handleForgotPassword(e) {
         e.preventDefault();
-        const email = document.getElementById('forgot-email').value.trim();
-        appToast.success(`Mã khôi phục đã được gửi tới ${email}. Vui lòng kiểm tra hộp thư.`, 'Gửi Thành Công');
-        // Simulate sending email, then go to reset password
-        setTimeout(() => {
+        const who = document.getElementById('forgot-email').value.trim();
+        try {
+            // Backend chưa gắn dịch vụ email nên trả mã ngay trong phản hồi
+            this.resetToken = (await ApiService.auth.forgotPassword(who)).data;
+            appToast.success(`Mã khôi phục của bạn là ${this.resetToken} (hiệu lực 1 giờ).`, 'Đã Tạo Mã');
             this.switchTab('reset-password');
-        }, 1500);
+        } catch (err) {
+            appToast.error(err.message || 'Không tìm thấy tài khoản!');
+        }
     },
 
-    handleResetPassword(e) {
+    async handleResetPassword(e) {
         e.preventDefault();
-        const pass = document.getElementById('reset-password').value.trim();
-        const repass = document.getElementById('reset-repassword').value.trim();
-        
+        const token = document.getElementById('reset-token').value.trim();
+        const pass = document.getElementById('reset-password').value;
+        const repass = document.getElementById('reset-repassword').value;
+
         if (pass !== repass) {
             appToast.error('Mật khẩu xác nhận không khớp!');
             return;
         }
 
-        appToast.success('Mật khẩu đã được đặt lại thành công! Đang chuyển hướng...', 'Thành Công');
-        setTimeout(() => {
+        try {
+            await ApiService.auth.resetPassword(token, pass);
+            this.resetToken = '';
+            appToast.success('Mật khẩu đã được đặt lại. Hãy đăng nhập bằng mật khẩu mới.', 'Thành Công');
             this.switchTab('login');
-        }, 1500);
+        } catch (err) {
+            appToast.error(err.message || 'Mã khôi phục không hợp lệ!');
+        }
     }
 };

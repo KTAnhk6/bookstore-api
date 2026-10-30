@@ -32,8 +32,18 @@ build/
 ### VS Code ###
 .vscode/
 
+### JDK portable dùng để build/test cục bộ ###
 .tools/
+
+### Bản sao lưu database cục bộ (có dữ liệu người dùng) ###
 db/
 db-backup/
+
+# Ảnh người dùng tải lên khi chạy thử
+uploads/
+
+# Mật khẩu và bản dump database có dữ liệu người dùng
+TAI_KHOAN.md
+db/bookstore_hien_tai.sql
 *.sql
 

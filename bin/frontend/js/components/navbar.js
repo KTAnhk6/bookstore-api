@@ -1,0 +1,211 @@
+/**
+ * MAIN NAVBAR & HEADER COMPONENT
+ * Renders header, live search bar, user dropdown menu, cart/wishlist counters,
+ * and category quick navigation bar.
+ */
+
+const navbarComponent = {
+    render() {
+        const header = document.getElementById('main-header');
+        const user = store.currentUser;
+        const cartCount = store.getCartCount();
+        const wishlistCount = store.getWishlist().length;
+        const currentRole = store.activeRole;
+
+        header.innerHTML = `
+            <div class="container">
+                <div class="header-main-nav">
+                    <!-- Brand Logo -->
+                    <a href="#/" class="brand-logo">
+                        <div class="logo-icon"><i class="fa-solid fa-book-bookmark"></i></div>
+                        <span class="logo-text">Book<span class="gradient-text">Nest</span></span>
+                    </a>
+
+                    <!-- Live Search Bar -->
+                    <div class="header-search-wrapper">
+                        <i class="fa-solid fa-magnifying-glass header-search-icon"></i>
+                        <input type="text" id="global-search-input" class="header-search-input" 
+                               placeholder="Tìm theo tên sách, tác giả (Robert C. Martin, James Clear...)" autocomplete="off">
+                        <button class="header-search-btn" id="btn-submit-search">Tìm kiếm</button>
+                        
+                        <!-- Search Suggestions Dropdown -->
+                        <div class="search-suggest-dropdown" id="search-suggestions-box"></div>
+                    </div>
+
+                    <!-- Navigation Actions -->
+                    <div class="header-actions">
+                        <!-- Quick Genre Preference Button -->
+                        <button class="btn btn-outline-primary btn-sm d-none d-lg-inline-flex" id="btn-open-pref-modal" 
+                                onclick="favoriteGenresModal.open()" title="Cá nhân hoá sách theo 5 thể loại yêu thích">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> 5 Sở Thích
+                        </button>
+
+                        <!-- Wishlist Button -->
+                        <a href="#/wishlist" class="icon-badge-btn" title="Sách yêu thích">
+                            <i class="fa-regular fa-heart"></i>
+                            <span class="badge-counter" id="header-wishlist-count">${wishlistCount}</span>
+                        </a>
+
+                        <!-- Shopping Cart Button -->
+                        <a href="#/cart" class="icon-badge-btn" title="Giỏ hàng của bạn">
+                            <i class="fa-solid fa-cart-shopping"></i>
+                            <span class="badge-counter" id="header-cart-count">${cartCount}</span>
+                        </a>
+
+                        <!-- User Menu / Auth Button -->
+                        ${user ? `
+                            <div class="user-menu-wrapper" id="user-menu-wrapper">
+                                <button class="user-menu-btn" id="user-menu-toggle-btn">
+                                    <div class="user-avatar-sm">${user.name.charAt(0)}</div>
+                                    <span class="user-display-name">${user.name.split(' ')[0]}</span>
+                                    <i class="fa-solid fa-chevron-down text-xs text-muted"></i>
+                                </button>
+                                
+                                <div class="user-dropdown-menu" id="user-dropdown-menu">
+                                    <div class="user-dropdown-header">
+                                        <div class="font-bold text-sm text-truncate">${user.name}</div>
+                                        <div class="text-xs text-muted">${user.email}</div>
+                                        <span class="badge ${user.role === 'ROLE_ADMIN' ? 'badge-primary' : 'badge-subtle'} mt-1">
+                                            ${user.role === 'ROLE_ADMIN' ? 'Quản Trị Viên' : 'Khách Hàng Thân Thiết'}
+                                        </span>
+                                    </div>
+                                    <a href="#/profile" class="user-dropdown-item"><i class="fa-solid fa-user"></i> Tài Khoản & Sổ Địa Chỉ</a>
+                                    <a href="#/profile?tab=orders" class="user-dropdown-item"><i class="fa-solid fa-box-archive"></i> Đơn Hàng Của Tôi</a>
+                                    <a href="#/recommendations" class="user-dropdown-item"><i class="fa-solid fa-sparkles"></i> Sách Đề Xuất Cho Tôi</a>
+                                    <div class="user-dropdown-item" onclick="favoriteGenresModal.open()"><i class="fa-solid fa-heart-pulse"></i> Đổi 5 Thể Loại Yêu Thích</div>
+                                    <div class="user-dropdown-item" onclick="app.toggleRole()"><i class="fa-solid fa-repeat"></i> Chuyển sang ${currentRole === 'customer' ? 'Quản Trị' : 'Khách Hàng'}</div>
+                                    <div class="user-dropdown-item danger-item" onclick="store.logout(); appToast.info('Đã đăng xuất thành công!'); app.navigate('#/auth');"><i class="fa-solid fa-right-from-bracket"></i> Đăng Xuất</div>
+                                </div>
+                            </div>
+                        ` : `
+                            <a href="#/auth" class="btn btn-primary btn-sm">
+                                <i class="fa-solid fa-arrow-right-to-bracket mr-1"></i> Đăng Nhập
+                            </a>
+                        `}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sub-Navbar / Categories Ribbon -->
+            <div class="sub-nav-bar">
+                <div class="container">
+                    <div class="sub-nav-list">
+                        <a href="#/catalog" class="sub-nav-item active"><i class="fa-solid fa-grid-2 mr-1"></i> Tất Cả Sách</a>
+                        <a href="#/catalog?category=cat_cntt" class="sub-nav-item"><i class="fa-solid fa-code mr-1"></i> Công Nghệ IT</a>
+                        <a href="#/catalog?category=cat_kinhte" class="sub-nav-item"><i class="fa-solid fa-chart-line mr-1"></i> Kinh Tế - Đầu Tư</a>
+                        <a href="#/catalog?category=cat_tamly" class="sub-nav-item"><i class="fa-solid fa-brain mr-1"></i> Tâm Lý - Kỹ Năng</a>
+                        <a href="#/catalog?category=cat_vanhoc" class="sub-nav-item"><i class="fa-solid fa-feather mr-1"></i> Văn Học Tiểu Thuyết</a>
+                        <a href="#/catalog?category=cat_khoahoc" class="sub-nav-item"><i class="fa-solid fa-atom mr-1"></i> Khoa Học Vũ Trụ</a>
+                        <a href="#/recommendations" class="sub-nav-item text-primary font-bold"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Đề Xuất Theo Sở Thích</a>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        this.attachEvents();
+    },
+
+    attachEvents() {
+        // Toggle User Dropdown
+        const userMenuBtn = document.getElementById('user-menu-toggle-btn');
+        const userDropdown = document.getElementById('user-dropdown-menu');
+        if (userMenuBtn && userDropdown) {
+            userMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                userDropdown.classList.toggle('active');
+            });
+
+            document.addEventListener('click', () => {
+                userDropdown.classList.remove('active');
+            });
+        }
+
+        // Live Search Input Debounce
+        const searchInput = document.getElementById('global-search-input');
+        const suggestBox = document.getElementById('search-suggestions-box');
+        const searchBtn = document.getElementById('btn-submit-search');
+
+        let debounceTimer;
+        if (searchInput && suggestBox) {
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(debounceTimer);
+                const query = e.target.value.trim();
+
+                if (!query) {
+                    suggestBox.classList.remove('active');
+                    suggestBox.innerHTML = '';
+                    return;
+                }
+
+                debounceTimer = setTimeout(() => {
+                    const books = store.getBooks();
+                    const filtered = books.filter(b => 
+                        b.title.toLowerCase().includes(query.toLowerCase()) || 
+                        b.authorName.toLowerCase().includes(query.toLowerCase())
+                    ).slice(0, 5);
+
+                    if (filtered.length > 0) {
+                        suggestBox.innerHTML = filtered.map(b => `
+                            <div class="suggest-item" onclick="app.navigate('#/book/${b.id}'); document.getElementById('search-suggestions-box').classList.remove('active');">
+                                <img src="${b.coverImage}" alt="${b.title}">
+                                <div class="flex-1">
+                                    <div class="text-sm font-bold text-truncate">${b.title}</div>
+                                    <div class="text-xs text-muted">${b.authorName} • <span class="text-primary font-semibold">${store.formatCurrency(b.price)}</span></div>
+                                </div>
+                            </div>
+                        `).join('') + `
+                            <div class="p-2 text-center text-xs text-primary font-bold bg-subtle cursor-pointer" 
+                                 onclick="app.navigate('#/catalog?keyword=${encodeURIComponent(query)}'); document.getElementById('search-suggestions-box').classList.remove('active');">
+                                Xem tất cả kết quả cho "${query}" <i class="fa-solid fa-arrow-right ml-1"></i>
+                            </div>
+                        `;
+                        suggestBox.classList.add('active');
+                    } else {
+                        suggestBox.innerHTML = `
+                            <div class="p-4 text-center text-sm text-muted">
+                                <i class="fa-regular fa-face-frown mb-1" style="font-size: 1.5rem;"></i>
+                                <p>Không tìm thấy sách phù hợp với "${query}"</p>
+                            </div>
+                        `;
+                        suggestBox.classList.add('active');
+                    }
+                }, 250);
+            });
+
+            // Enter key trigger
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const val = searchInput.value.trim();
+                    if (val) {
+                        suggestBox.classList.remove('active');
+                        app.navigate(`#/catalog?keyword=${encodeURIComponent(val)}`);
+                    }
+                }
+            });
+
+            searchBtn.addEventListener('click', () => {
+                const val = searchInput.value.trim();
+                if (val) {
+                    suggestBox.classList.remove('active');
+                    app.navigate(`#/catalog?keyword=${encodeURIComponent(val)}`);
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !suggestBox.contains(e.target)) {
+                    suggestBox.classList.remove('active');
+                }
+            });
+        }
+    },
+
+    updateBadges() {
+        const cartBadge = document.getElementById('header-cart-count');
+        const wishlistBadge = document.getElementById('header-wishlist-count');
+        const mobCartBadge = document.querySelector('.mobile-bottom-nav .cart-count-badge');
+
+        if (cartBadge) cartBadge.textContent = store.getCartCount();
+        if (mobCartBadge) mobCartBadge.textContent = store.getCartCount();
+        if (wishlistBadge) wishlistBadge.textContent = store.getWishlist().length;
+    }
+};
