@@ -69,8 +69,9 @@ class BookNestStore {
         return !!u && (u.role === 'ADMIN' || u.role === 'STAFF');
     }
 
-    async setSession(user, token) {
+    async setSession(user, token, refreshToken) {
         localStorage.setItem(API_CONFIG.TOKEN_KEY, token);
+        if (refreshToken) localStorage.setItem(API_CONFIG.REFRESH_KEY, refreshToken);
         localStorage.setItem(API_CONFIG.USER_KEY, JSON.stringify(user));
         this.notify('auth_changed', user);
         await this.loadUserData();
@@ -83,11 +84,21 @@ class BookNestStore {
 
     clearSession() {
         localStorage.removeItem(API_CONFIG.TOKEN_KEY);
+        localStorage.removeItem(API_CONFIG.REFRESH_KEY);
         localStorage.removeItem(API_CONFIG.USER_KEY);
         this.resetUserData();
     }
 
     logout() {
+        // Thu hồi phiên trên server (không cần chờ; mất mạng thì phiên vẫn tự hết hạn)
+        const refreshToken = localStorage.getItem(API_CONFIG.REFRESH_KEY);
+        if (refreshToken) ApiService.auth.logout(refreshToken).catch(() => {});
+        this.clearSession();
+        this.notify('auth_changed', null);
+    }
+
+    async logoutAll() {
+        await ApiService.auth.logoutAll();
         this.clearSession();
         this.notify('auth_changed', null);
     }

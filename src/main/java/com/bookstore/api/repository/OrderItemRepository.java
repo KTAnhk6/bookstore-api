@@ -12,6 +12,7 @@ import java.util.List;
 public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 
     List<OrderItem> findByOrderId(Long orderId);
+    boolean existsByBookId(Long bookId);
 
     @Query("SELECT c.name, SUM(oi.subtotal) FROM OrderItem oi JOIN oi.order o JOIN oi.book b JOIN b.bookCategories bc JOIN bc.category c "
             + "WHERE bc.isPrimary = true AND o.status NOT IN (com.bookstore.api.entity.Order$OrderStatus.CANCELLED, com.bookstore.api.entity.Order$OrderStatus.RETURNED) "

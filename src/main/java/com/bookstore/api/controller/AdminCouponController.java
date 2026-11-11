@@ -63,5 +63,6 @@ public class AdminCouponController {
         coupon.setEndDate(r.getEndDate());
         coupon.setUsageLimit(r.getUsageLimit());
         coupon.setActive(r.getActive() == null || r.getActive());
+        coupon.setFirstOrderOnly(Boolean.TRUE.equals(r.getFirstOrderOnly()));
     }
 }

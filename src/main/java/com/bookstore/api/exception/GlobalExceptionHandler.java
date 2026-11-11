@@ -62,9 +62,48 @@ public class GlobalExceptionHandler {
                         .build());
     }
 
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiResponse<Object>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
+        Throwable root = org.springframework.core.NestedExceptionUtils.getMostSpecificCause(ex);
+        String msg = (root != null ? root.getMessage() : ex.getMessage()) + " " + ex.getMessage();
+        if (msg.contains("users.phone") || (msg.contains("Duplicate entry") && msg.contains("phone"))) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("Số điện thoại này đã được sử dụng bởi tài khoản khác. Vui lòng sử dụng số điện thoại khác!"));
+        }
+        if (msg.contains("users.email") || (msg.contains("Duplicate entry") && msg.contains("email")) || msg.contains("UK_6dotkott2kjsp8vw4d0m25fb7")) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("Email này đã được sử dụng bởi tài khoản khác. Vui lòng sử dụng email khác hoặc đăng nhập!"));
+        }
+        if (msg.contains("users.username") || (msg.contains("Duplicate entry") && msg.contains("username")) || msg.contains("UK_r43af9ap4edm43mmtq01oddj6")) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("Tên đăng nhập này đã được sử dụng. Vui lòng chọn tên đăng nhập khác!"));
+        }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error("Dữ liệu bị trùng lặp hoặc vi phạm ràng buộc dữ liệu trong hệ thống."));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleGeneralException(Exception ex) {
+        Throwable root = org.springframework.core.NestedExceptionUtils.getMostSpecificCause(ex);
+        String msg = (root != null ? root.getMessage() : ex.getMessage()) + " " + ex.getMessage();
+        String lower = msg.toLowerCase();
+        if (lower.contains("duplicate entry") || lower.contains("unique constraint") || lower.contains("constraint [users.")) {
+            if (lower.contains("email") || lower.contains("uk_6dotkott2kjsp8vw4d0m25fb7")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.error("Email này đã được sử dụng bởi tài khoản khác. Vui lòng sử dụng email khác hoặc đăng nhập!"));
+            }
+            if (lower.contains("phone")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.error("Số điện thoại này đã được sử dụng bởi tài khoản khác. Vui lòng sử dụng số khác!"));
+            }
+            if (lower.contains("username") || lower.contains("uk_r43af9ap4edm43mmtq01oddj6")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.error("Tên đăng nhập này đã được sử dụng. Vui lòng chọn tên khác!"));
+            }
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error("Thông tin đăng ký bị trùng lặp trong hệ thống. Vui lòng kiểm tra lại!"));
+        }
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("Đã xảy ra lỗi hệ thống: " + ex.getMessage()));
+                .body(ApiResponse.error("Đã xảy ra lỗi hệ thống: " + (root != null ? root.getMessage() : ex.getMessage())));
     }
 }

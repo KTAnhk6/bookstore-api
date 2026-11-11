@@ -2,12 +2,15 @@ package com.bookstore.api.controller;
 
 import com.bookstore.api.common.ApiResponse;
 import com.bookstore.api.dto.request.OrderRequest;
+import com.bookstore.api.dto.request.PaymentSettingsRequest;
 import com.bookstore.api.dto.response.BankTransactionResponse;
 import com.bookstore.api.dto.response.PaymentSessionResponse;
+import com.bookstore.api.dto.response.PaymentSettingsResponse;
 import com.bookstore.api.entity.PaymentSession;
 import com.bookstore.api.security.CustomUserDetails;
 import com.bookstore.api.service.BankReconciliationService;
 import com.bookstore.api.service.PaymentSessionService;
+import com.bookstore.api.service.PaymentSettingsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +28,7 @@ public class PaymentSessionController {
 
     private final PaymentSessionService paymentSessionService;
     private final BankReconciliationService reconciliationService;
+    private final PaymentSettingsService settingsService;
 
     @PostMapping("/session")
     public ResponseEntity<ApiResponse<PaymentSessionResponse>> createSession(
@@ -52,7 +56,11 @@ public class PaymentSessionController {
         return ResponseEntity.ok(ApiResponse.success(paymentSessionService.getSession(userDetails.getId(), id)));
     }
 
-    /** "Tôi đã chuyển khoản": đối soát ngân hàng ngay rồi trả trạng thái mới. */
+    /**
+     * "Tôi đã chuyển khoản": đối soát ngân hàng ngay rồi trả trạng thái mới.
+     * Chưa thấy tiền -> phiên chuyển sang CLAIMED: đơn không bị hủy khi hết 10 phút, vẫn tự xác nhận khi tiền về,
+     * hoặc admin xác nhận thủ công sau khi kiểm tra tài khoản.
+     */
     @PostMapping("/session/{id}/check")
     public ResponseEntity<ApiResponse<PaymentSessionResponse>> checkNow(
             @AuthenticationPrincipal CustomUserDetails userDetails,
@@ -61,6 +69,7 @@ public class PaymentSessionController {
         paymentSessionService.getSession(userDetails.getId(), id); // kiểm tra quyền sở hữu trước khi gọi ngân hàng
         reconciliationService.syncIfStale();
         paymentSessionService.expireSession(id);
+        paymentSessionService.claimSession(id);
         return ResponseEntity.ok(ApiResponse.success(paymentSessionService.getSession(userDetails.getId(), id)));
     }
 
@@ -88,10 +97,35 @@ public class PaymentSessionController {
         return ResponseEntity.ok(ApiResponse.success(paymentSessionService.getAllSessions(status)));
     }
 
+    @PostMapping("/admin/sessions/{id}/confirm")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<PaymentSessionResponse>> confirmClaim(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success("Đã xác nhận thanh toán", paymentSessionService.confirmClaim(id)));
+    }
+
+    @PostMapping("/admin/sessions/{id}/reject")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<PaymentSessionResponse>> rejectClaim(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success("Đã hủy phiên và đơn hàng", paymentSessionService.rejectClaim(id)));
+    }
+
     @GetMapping("/admin/bank-transactions")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<BankTransactionResponse>>> getBankTransactions() {
         return ResponseEntity.ok(ApiResponse.success(paymentSessionService.getBankTransactions()));
+    }
+
+    @GetMapping("/admin/settings")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<PaymentSettingsResponse>> getSettings() {
+        return ResponseEntity.ok(ApiResponse.success(settingsService.get()));
+    }
+
+    @PutMapping("/admin/settings")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<PaymentSettingsResponse>> updateSettings(@RequestBody PaymentSettingsRequest request) {
+        PaymentSettingsResponse response = settingsService.updateHistoryUrl(request.getHistoryUrl());
+        return ResponseEntity.ok(ApiResponse.success("Đã cập nhật cài đặt thanh toán", response));
     }
 
     @PostMapping("/admin/sync")

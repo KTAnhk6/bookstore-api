@@ -21,6 +21,8 @@ ALTER TABLE `users`
   MODIFY COLUMN `role` VARCHAR(16) NOT NULL DEFAULT 'customer',
   MODIFY COLUMN `status` VARCHAR(16) NULL DEFAULT 'active';
 UPDATE `users` SET `gender` = UPPER(`gender`), `role` = UPPER(`role`), `status` = UPPER(`status`);
+UPDATE `users` SET `password_hash` = '$2a$10$9o3GpOr3fXdUI78wjtcOPet9HlWvDxEXwFTdJNmT/rovwsFUtr1Gq' WHERE `username` = 'admin';
+UPDATE `users` SET `password_hash` = '$2a$10$cc23HtsnUoyBixtaGXR8IeRzEqOUwJdaQWk10hlOD2fKvi6On5lUm' WHERE `username` IN ('staff01','staff02','user01','user02','user03');
 ALTER TABLE `users`
   MODIFY COLUMN `gender` ENUM('FEMALE','MALE','OTHER') NULL DEFAULT NULL,
   MODIFY COLUMN `role` ENUM('ADMIN','CUSTOMER','STAFF') NOT NULL DEFAULT 'CUSTOMER',
@@ -45,6 +47,7 @@ ALTER TABLE `addresses`
 -- ---------- categories: sort_order -> display_order, status -> active ----------
 ALTER TABLE `categories`
   CHANGE COLUMN `sort_order` `display_order` INT(11) NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS `icon` VARCHAR(255) NULL DEFAULT NULL,
   ADD COLUMN `active` BIT(1) NOT NULL DEFAULT b'1';
 UPDATE `categories` SET `active` = (`status` = 'active');
 ALTER TABLE `categories` DROP COLUMN `status`;
@@ -58,9 +61,10 @@ UPDATE `coupons` SET `active` = (`status` = 'active'),
   `discount_type` = CASE `discount_type` WHEN 'percent' THEN 'PERCENTAGE' WHEN 'fixed' THEN 'FIXED_AMOUNT' ELSE UPPER(`discount_type`) END;
 ALTER TABLE `coupons`
   MODIFY COLUMN `discount_type` ENUM('FIXED_AMOUNT','PERCENTAGE') NOT NULL DEFAULT 'PERCENTAGE',
+  ADD COLUMN IF NOT EXISTS `first_order_only` TINYINT(1) NOT NULL DEFAULT 0,
   DROP COLUMN `status`;
 
--- ---------- orders: order_status -> status, paid -> SUCCESS, thêm QR_CODE ----------
+-- ---------- orders: order_status -> status, paid -> SUCCESS, thêm QR_CODE & REFUND_PENDING ----------
 ALTER TABLE `orders`
   CHANGE COLUMN `order_status` `status` VARCHAR(16) NOT NULL DEFAULT 'pending',
   MODIFY COLUMN `payment_status` VARCHAR(16) NOT NULL DEFAULT 'pending',
@@ -69,7 +73,7 @@ UPDATE `orders` SET `status` = UPPER(`status`), `payment_method` = UPPER(`paymen
   `payment_status` = CASE `payment_status` WHEN 'paid' THEN 'SUCCESS' ELSE UPPER(`payment_status`) END;
 ALTER TABLE `orders`
   MODIFY COLUMN `status` ENUM('CANCELLED','CONFIRMED','DELIVERED','PENDING','PROCESSING','RETURNED','SHIPPING') NOT NULL DEFAULT 'PENDING',
-  MODIFY COLUMN `payment_status` ENUM('FAILED','PENDING','REFUNDED','SUCCESS') NOT NULL DEFAULT 'PENDING',
+  MODIFY COLUMN `payment_status` ENUM('FAILED','PENDING','REFUNDED','REFUND_PENDING','SUCCESS') NOT NULL DEFAULT 'PENDING',
   MODIFY COLUMN `payment_method` ENUM('BANKING','COD','MOMO','QR_CODE','STRIPE','VNPAY') NOT NULL DEFAULT 'COD';
 
 -- ---------- order_items: unit_price -> price, thêm tên/ảnh sách tại thời điểm mua ----------
@@ -81,7 +85,7 @@ UPDATE `order_items` oi JOIN `books` b ON b.id = oi.book_id
   SET oi.book_title = b.title, oi.book_cover_image = b.cover_image;
 ALTER TABLE `order_items` MODIFY COLUMN `book_title` VARCHAR(255) NOT NULL;
 
--- ---------- payments: note -> notes, enum chữ hoa, thêm QR_CODE ----------
+-- ---------- payments: note -> notes, enum chữ hoa, thêm QR_CODE & REFUND_PENDING ----------
 ALTER TABLE `payments`
   CHANGE COLUMN `note` `notes` TEXT NULL DEFAULT NULL,
   MODIFY COLUMN `method` VARCHAR(16) NOT NULL DEFAULT 'cod',
@@ -89,7 +93,7 @@ ALTER TABLE `payments`
 UPDATE `payments` SET `method` = UPPER(`method`), `status` = UPPER(`status`);
 ALTER TABLE `payments`
   MODIFY COLUMN `method` ENUM('BANKING','COD','MOMO','QR_CODE','STRIPE','VNPAY') NOT NULL DEFAULT 'COD',
-  MODIFY COLUMN `status` ENUM('FAILED','PENDING','REFUNDED','SUCCESS') NOT NULL DEFAULT 'PENDING';
+  MODIFY COLUMN `status` ENUM('FAILED','PENDING','REFUNDED','REFUND_PENDING','SUCCESS') NOT NULL DEFAULT 'PENDING';
 
 -- ---------- carts -> cart_items ----------
 RENAME TABLE `carts` TO `cart_items`;
@@ -154,6 +158,10 @@ ALTER TABLE `refresh_tokens`
   MODIFY COLUMN `created_at` datetime NULL DEFAULT current_timestamp();
 
 ALTER TABLE `reviews`
+  MODIFY COLUMN `rating` int(11) NOT NULL,
+  ADD COLUMN IF NOT EXISTS `title` varchar(255) NULL DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS `is_verified_purchase` tinyint(1) NULL DEFAULT 0,
+  DROP COLUMN IF EXISTS `status`,
   MODIFY COLUMN `created_at` datetime NULL DEFAULT current_timestamp(),
   MODIFY COLUMN `updated_at` datetime NULL DEFAULT current_timestamp() ON UPDATE CURRENT_TIMESTAMP();
 
@@ -168,3 +176,12 @@ ALTER TABLE `users`
   MODIFY COLUMN `has_set_preferences` tinyint(1) NULL DEFAULT 0,
   MODIFY COLUMN `created_at` datetime NULL DEFAULT current_timestamp(),
   MODIFY COLUMN `updated_at` datetime NULL DEFAULT current_timestamp() ON UPDATE CURRENT_TIMESTAMP();
+
+-- -----------------------------------------------------
+-- Table app_settings (Lưu cấu hình hệ thống động như API MB Bank)
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS app_settings (
+    setting_key VARCHAR(100) NOT NULL PRIMARY KEY,
+    setting_value TEXT NULL,
+    updated_at DATETIME NULL
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;

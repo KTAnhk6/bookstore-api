@@ -49,4 +49,12 @@ class BankHistoryParsingTest {
         assertEquals(8L, BankReconciliationService.findSession("MBVCB.123.BKQWER6789.CT tu 0123", codes));
         assertNull(BankReconciliationService.findSession("chuyen tien mua sach", codes));
     }
+
+    @Test
+    void maskHidesTokenButKeepsHostAndLastChars() {
+        String masked = BankHistoryClient.mask("https://id.xapi.vn/historyapimbbank/SECRETTOKEN1234");
+        assertEquals("https://id.xapi.vn/…••••1234", masked);
+        assertFalse(masked.contains("SECRET"));
+        assertEquals("", BankHistoryClient.mask("  "));
+    }
 }

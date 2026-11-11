@@ -14,6 +14,8 @@ import com.bookstore.api.repository.PasswordResetTokenRepository;
 import com.bookstore.api.entity.PasswordResetToken;
 import com.bookstore.api.security.JwtUtil;
 import com.bookstore.api.service.AuthService;
+import com.bookstore.api.service.MailService;
+import com.bookstore.api.service.RefreshTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -35,16 +37,26 @@ public class AuthServiceImpl implements AuthService {
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final MailService mailService;
+    private final RefreshTokenService refreshTokenService;
 
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByUsername(request.getUsername())) {
+        String trimmedUsername = request.getUsername() != null ? request.getUsername().trim().toLowerCase() : "";
+        String trimmedEmail = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
+
+        if (userRepository.existsByUsername(trimmedUsername) || userRepository.existsByUsername(request.getUsername())) {
             throw new BadRequestException("Tên đăng nhập '" + request.getUsername() + "' đã được sử dụng");
         }
 
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByEmail(trimmedEmail) || userRepository.existsByEmail(request.getEmail())) {
             throw new BadRequestException("Email '" + request.getEmail() + "' đã được sử dụng");
+        }
+
+        if (request.getPhone() != null && !request.getPhone().trim().isEmpty()
+                && userRepository.existsByPhone(request.getPhone().trim())) {
+            throw new BadRequestException("Số điện thoại '" + request.getPhone() + "' đã được sử dụng bởi tài khoản khác");
         }
 
         User user = User.builder()
@@ -64,13 +76,7 @@ public class AuthServiceImpl implements AuthService {
 
         user = userRepository.save(user);
 
-        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getEmail(), user.getRole().name());
-
-        return AuthResponse.builder()
-                .token(token)
-                .tokenType("Bearer")
-                .user(UserResponse.fromEntity(user))
-                .build();
+        return buildAuthResponse(user, refreshTokenService.issue(user));
     }
 
     @Override
@@ -97,10 +103,32 @@ public class AuthServiceImpl implements AuthService {
         user.setLastLoginAt(LocalDateTime.now());
         userRepository.save(user);
 
+        return buildAuthResponse(user, refreshTokenService.issue(user));
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse refresh(String refreshToken) {
+        RefreshTokenService.Rotation rotation = refreshTokenService.rotate(refreshToken);
+        return buildAuthResponse(rotation.user(), rotation.refreshToken());
+    }
+
+    @Override
+    public void logout(String refreshToken) {
+        refreshTokenService.revoke(refreshToken);
+    }
+
+    @Override
+    public void logoutAll(Long userId) {
+        refreshTokenService.revokeAll(userId);
+    }
+
+    private AuthResponse buildAuthResponse(User user, String refreshToken) {
         String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getEmail(), user.getRole().name());
 
         return AuthResponse.builder()
                 .token(token)
+                .refreshToken(refreshToken)
                 .tokenType("Bearer")
                 .user(UserResponse.fromEntity(user))
                 .build();
@@ -123,8 +151,20 @@ public class AuthServiceImpl implements AuthService {
                 .build();
         passwordResetTokenRepository.save(tokenEntity);
 
-        log.info("Reset password token for user {}: {}", user.getUsername(), resetToken);
-        return resetToken;
+        boolean sent = mailService.send(user.getEmail(), "[BookNest] Mã đặt lại mật khẩu",
+                "Xin chào " + (user.getFullName() != null ? user.getFullName() : user.getUsername()) + ",\n\n"
+                        + "Mã đặt lại mật khẩu của bạn là: " + resetToken + "\n"
+                        + "Mã có hiệu lực trong 1 giờ và chỉ dùng được một lần.\n\n"
+                        + "Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.");
+        return sent
+                ? "Mã đặt lại mật khẩu đã được gửi tới email " + maskEmail(user.getEmail())
+                : "Máy chủ chưa cấu hình gửi email, mã đặt lại mật khẩu đã được ghi vào log máy chủ";
+    }
+
+    private static String maskEmail(String email) {
+        int at = email.indexOf('@');
+        if (at <= 1) return email;
+        return email.charAt(0) + "***" + email.substring(at - 1);
     }
 
     @Override
@@ -143,6 +183,9 @@ public class AuthServiceImpl implements AuthService {
         
         tokenEntity.setUsed(true);
         passwordResetTokenRepository.save(tokenEntity);
+
+        // Đổi mật khẩu qua email thì đăng xuất mọi thiết bị (phòng trường hợp tài khoản bị chiếm)
+        refreshTokenService.revokeAll(user.getId());
     }
 
     @Override

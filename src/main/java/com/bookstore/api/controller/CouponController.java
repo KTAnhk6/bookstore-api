@@ -6,12 +6,17 @@ import com.bookstore.api.entity.Coupon;
 import com.bookstore.api.exception.BadRequestException;
 import com.bookstore.api.exception.ResourceNotFoundException;
 import com.bookstore.api.repository.CouponRepository;
+import com.bookstore.api.security.CustomUserDetails;
+import com.bookstore.api.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.text.NumberFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @RestController
@@ -20,6 +25,7 @@ import java.util.stream.Collectors;
 public class CouponController {
 
     private final CouponRepository couponRepository;
+    private final OrderService orderService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<CouponResponse>>> getActiveCoupons() {
@@ -32,15 +38,21 @@ public class CouponController {
     @GetMapping("/validate")
     public ResponseEntity<ApiResponse<CouponResponse>> validateCoupon(
             @RequestParam String code,
-            @RequestParam(required = false, defaultValue = "0") BigDecimal orderAmount
+            @RequestParam(required = false, defaultValue = "0") BigDecimal orderAmount,
+            @AuthenticationPrincipal CustomUserDetails me
     ) {
         Coupon coupon = couponRepository.findByCodeIgnoreCaseAndActiveTrue(code.trim())
                 .orElseThrow(() -> new ResourceNotFoundException("Mã giảm giá không tồn tại hoặc đã hết hiệu lực"));
 
         if (!coupon.isValid(orderAmount)) {
-            throw new BadRequestException("Mã giảm giá không hợp lệ hoặc đơn hàng chưa đạt giá trị tối thiểu "
-                    + (coupon.getMinOrderAmount() != null ? coupon.getMinOrderAmount() + "đ" : ""));
+            BigDecimal min = coupon.getMinOrderAmount();
+            if (min != null && orderAmount.compareTo(min) < 0) {
+                throw new BadRequestException("Đơn hàng chưa đạt giá trị tối thiểu "
+                        + NumberFormat.getIntegerInstance(Locale.forLanguageTag("vi-VN")).format(min) + "đ để dùng mã này");
+            }
+            throw new BadRequestException("Mã giảm giá đã hết hạn hoặc hết lượt sử dụng");
         }
+        if (me != null) orderService.checkCouponUsage(me.getId(), coupon);
 
         BigDecimal discount = coupon.calculateDiscount(orderAmount);
         CouponResponse response = CouponResponse.fromEntity(coupon);

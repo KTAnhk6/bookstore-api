@@ -7,13 +7,13 @@
 | Mỗi khách, mỗi phiên một mã QR riêng | Mỗi phiên gắn với 1 đơn hàng, có **nội dung chuyển khoản duy nhất** dạng `BKxxxxxxxx` (8 ký tự ngẫu nhiên, bỏ các ký tự dễ nhầm 0/O/1/I). QR theo chuẩn VietQR (NAPAS EMVCo), app ngân hàng nào quét cũng tự điền sẵn số TK, số tiền và nội dung. |
 | Giới hạn 10 phút | Hết 10 phút → phiên `EXPIRED`, đơn bị hủy, **hoàn lại tồn kho**. Đổi thời gian bằng `payment.qr.session-minutes`. |
 | Chọn sản phẩm khác → hủy phiên cũ | Gọi tạo phiên với giỏ/sản phẩm khác → phiên cũ `CANCELLED`, đơn cũ hủy + hoàn kho, sinh **QR và nội dung mới**. Gọi lại với đúng sản phẩm, số lượng và địa chỉ cũ thì giữ nguyên QR cũ (không tạo đơn trùng). |
-| Server tự xác nhận thanh toán | Mỗi 15 giây server đọc lịch sử giao dịch MB Bank và tìm nội dung `BK...` trong tiền **vào**. Đủ tiền → phiên `PAID`, đơn `CONFIRMED`, payment `SUCCESS`. Mỗi giao dịch ngân hàng (refNo) chỉ được tính **một lần**. |
+| Server tự xác nhận thanh toán | Mỗi 5 giây server đọc lịch sử giao dịch MB Bank và tìm nội dung `BK...` trong tiền **vào**. Đủ tiền → phiên `PAID`, đơn `CONFIRMED`, payment `SUCCESS`. Mỗi giao dịch ngân hàng (refNo) chỉ được tính **một lần**. |
 | Các trường hợp như ngân hàng thật | Chuyển **thiếu**: `PARTIAL` (cộng dồn, chuyển nốt phần còn lại là đủ). Tiền về **sau khi hủy/hết hạn**: `LATE`. Phiên đã trả rồi mà còn tiền về: `DUPLICATE`. Hai loại cuối hiện ở màn quản trị để hoàn tiền thủ công. |
 
 Có 2 chế độ ngân hàng:
 
-- **GIẢ LẬP** (mặc định, khi chưa đặt `BANK_HISTORY_URL`): "ngân hàng" nằm ngay trong server, bấm nút là có tiền về, không mất tiền thật. Định dạng sao kê giống hệt API MB Bank.
-- **MB BANK THẬT**: đặt biến môi trường `BANK_HISTORY_URL` = link API lịch sử giao dịch. Link này chứa token nên **chỉ để trong biến môi trường, không ghi vào file nào trong repo** (repo đang public).
+- **GIẢ LẬP** (mặc định, khi admin chưa nhập link API): "ngân hàng" nằm ngay trong server, bấm nút là có tiền về, không mất tiền thật. Định dạng sao kê giống hệt API MB Bank.
+- **MB BANK THẬT**: admin vào **Quản trị → Thanh Toán QR → Cài đặt thanh toán**, dán link API lịch sử giao dịch rồi bấm **Lưu & Kiểm Tra**. Link chứa token nên được lưu trong database (bảng `app_settings`), không nằm trong file nào của repo và không bao giờ trả về trình duyệt đầy đủ (chỉ hiện dạng che). Đổi link có hiệu lực ngay, không cần khởi động lại. Biến môi trường `BANK_HISTORY_URL` vẫn dùng được như giá trị dự phòng khi admin chưa nhập.
 
 ---
 
@@ -106,7 +106,7 @@ Vào **http://localhost:3000/payment-test.html**. Góc trên bên phải hiện 
 | 7 | Bấm **Chuyển nốt phần còn thiếu** | Vài giây sau: `PAID`, banner xanh "Thanh toán thành công" |
 | 8 | Bấm **Chuyển đúng tiền + nội dung** lần nữa | Phần Quản trị (bấm **Xem**): giao dịch `DUPLICATE` |
 | 9 | Chọn sách C rồi bấm **Hủy phiên**, sau đó **Chuyển đúng tiền** | Phiên `CANCELLED`, kho hoàn lại. Quản trị: `LATE`, "cần hoàn tiền thủ công". |
-| 10 | Chọn sách D và để yên 10 phút (hoặc tạm đặt `payment.qr.session-minutes=1`) | Đồng hồ về 00:00, trong vòng ~15 giây phiên chuyển `EXPIRED`, đơn hủy, kho hoàn lại |
+| 10 | Chọn sách D và để yên 10 phút (hoặc tạm đặt `payment.qr.session-minutes=1`) | Đồng hồ về 00:00, trong vòng ~5 giây phiên chuyển `EXPIRED`, đơn hủy, kho hoàn lại |
 | 11 | Chuyển tùy chỉnh, nội dung sai (ví dụ `BKSAIMA123`) | Không phiên nào được xác nhận |
 
 Ngân hàng giả lập cố tình viết nội dung giống app thật: chữ thường, có dấu cách giữa mã, kèm tên người chuyển và "Ma GD ACSP…". Như vậy test đúng phần nhận diện mã của server.
@@ -115,12 +115,7 @@ Ngân hàng giả lập cố tình viết nội dung giống app thật: chữ t
 
 ## 5. Test với MB Bank THẬT
 
-1. Tắt server rồi chạy lại, có đặt biến môi trường (chỉ tồn tại trong cửa sổ PowerShell đó, không ghi vào file):
-
-   ```powershell
-   $env:BANK_HISTORY_URL = "https://id.xapi.vn/historyapimbbank/<token của bạn>"
-   .\mvnw.cmd spring-boot:run
-   ```
+1. Đăng nhập admin, vào **Thanh Toán QR → Cài đặt thanh toán**, dán link và bấm **Lưu & Kiểm Tra** (không cần tắt server).
 
 2. Trang test sẽ báo **MB BANK THẬT**, và ô ngân hàng giả lập bị ẩn (server cũng chặn API giả lập).
 3. Tăng số lượng hoặc chọn sách rẻ nhất để có đơn nhỏ. Bấm **Thanh toán QR**, dùng app ngân hàng quét QR và chuyển **đúng số tiền, giữ nguyên nội dung**.
@@ -159,5 +154,5 @@ Cấu hình trong `application.properties`:
 | `payment.qr.bank-bin` / `account-no` / `account-name` | Tài khoản nhận tiền (MB Bank 970422 / 0396902081 / NGUYEN KIEU TUAN ANH) |
 | `payment.qr.session-minutes` | Thời gian giữ QR (10) |
 | `payment.qr.code-prefix` | Tiền tố nội dung chuyển khoản (BK) |
-| `payment.bank.history-url` | Lấy từ biến môi trường `BANK_HISTORY_URL`; để trống = giả lập |
-| `payment.bank.poll-interval-ms` | Chu kỳ đọc sao kê (15000) |
+| `payment.bank.history-url` | Giá trị dự phòng từ biến môi trường `BANK_HISTORY_URL`; link admin nhập trên web được ưu tiên; không có link nào = giả lập |
+| `payment.bank.poll-interval-ms` | Chu kỳ đọc sao kê (5000) |

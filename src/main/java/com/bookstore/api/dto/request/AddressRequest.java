@@ -20,7 +20,7 @@ public class AddressRequest {
     @NotBlank(message = "Tỉnh/Thành phố không được để trống")
     private String province;
 
-    @NotBlank(message = "Quận/Huyện không được để trống")
+    // Cách chia hành chính 2 cấp (tỉnh -> phường/xã) không có quận/huyện; chỉ còn cho địa chỉ cũ
     private String district;
 
     @NotBlank(message = "Phường/Xã không được để trống")

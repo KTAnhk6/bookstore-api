@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -86,8 +87,18 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
         List<Long> categoryIds = request.getCategoryIds();
-        if (categoryIds == null || categoryIds.isEmpty() || categoryIds.size() > 5) {
-            throw new BadRequestException("Vui lòng chọn từ 1 đến 5 thể loại yêu thích");
+        if (categoryIds != null && categoryIds.size() > 5) {
+            throw new BadRequestException("Vui lòng chọn tối đa 5 thể loại yêu thích");
+        }
+
+        // Remove old preferences
+        favoriteCategoryRepository.deleteByUserId(userId);
+
+        if (categoryIds == null || categoryIds.isEmpty()) {
+            user.setHasSetPreferences(false);
+            user.setPreferencesUpdatedAt(LocalDateTime.now());
+            userRepository.save(user);
+            return Collections.emptyList();
         }
 
         // Validate categories exist
@@ -95,9 +106,6 @@ public class UserServiceImpl implements UserService {
         if (categories.size() != categoryIds.size()) {
             throw new BadRequestException("Một hoặc nhiều thể loại không tồn tại");
         }
-
-        // Remove old preferences
-        favoriteCategoryRepository.deleteByUserId(userId);
 
         // Save new preferences
         List<UserFavoriteCategory> favoriteList = new ArrayList<>();

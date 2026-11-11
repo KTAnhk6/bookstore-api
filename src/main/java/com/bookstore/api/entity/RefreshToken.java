@@ -19,6 +19,7 @@ public class RefreshToken {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    /** SHA-256 của refresh token, không lưu mã gốc */
     @Column(nullable = false, unique = true, length = 500)
     private String token;
 

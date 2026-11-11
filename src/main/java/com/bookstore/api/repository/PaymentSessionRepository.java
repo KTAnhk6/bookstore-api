@@ -29,6 +29,10 @@ public interface PaymentSessionRepository extends JpaRepository<PaymentSession, 
 
     boolean existsByCreatedAtAfter(LocalDateTime time);
 
+    List<PaymentSession> findByStatus(PaymentSession.Status status);
+
+    boolean existsByStatus(PaymentSession.Status status);
+
     boolean existsByPaymentCode(String paymentCode);
 
     // Khóa dòng khi đổi trạng thái để tiền về / khách hủy / hết hạn không chạy chồng lên nhau

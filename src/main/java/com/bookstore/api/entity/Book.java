@@ -102,4 +102,8 @@ public class Book {
     }
 
     public enum Status { AVAILABLE, OUT_OF_STOCK, DISCONTINUED }
+
+    public BigDecimal getEffectivePrice() {
+        return (salePrice != null && salePrice.compareTo(BigDecimal.ZERO) > 0) ? salePrice : price;
+    }
 }

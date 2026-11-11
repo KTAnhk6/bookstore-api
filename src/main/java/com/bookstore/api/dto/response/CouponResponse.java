@@ -25,6 +25,7 @@ public class CouponResponse {
     private Integer usageLimit;
     private Integer usedCount;
     private Boolean active;
+    private Boolean firstOrderOnly;
 
     // Optional calculated discount when validating
     private BigDecimal calculatedDiscount;
@@ -44,6 +45,7 @@ public class CouponResponse {
                 .usageLimit(coupon.getUsageLimit())
                 .usedCount(coupon.getUsedCount())
                 .active(coupon.getActive())
+                .firstOrderOnly(coupon.getFirstOrderOnly())
                 .build();
     }
 }

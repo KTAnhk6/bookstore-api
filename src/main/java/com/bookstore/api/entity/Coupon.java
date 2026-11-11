@@ -55,6 +55,11 @@ public class Coupon {
     @Builder.Default
     private Boolean active = true;
 
+    /** Chỉ áp dụng cho đơn đầu tiên của tài khoản (chưa có đơn nào không bị huỷ) */
+    @Column(name = "first_order_only", nullable = false)
+    @Builder.Default
+    private Boolean firstOrderOnly = false;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

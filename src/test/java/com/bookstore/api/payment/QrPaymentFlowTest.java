@@ -190,6 +190,67 @@ class QrPaymentFlowTest {
     }
 
     @Test
+    void claimedSessionIsNotCancelledOnExpiryAndConfirmsWhenMoneyArrives() throws Exception {
+        String session = createSession(books.get(0).getId(), 1);
+        long sessionId = id(session);
+        String code = JsonPath.read(session, "$.data.paymentCode");
+        long amount = ((Number) JsonPath.read(session, "$.data.amount")).longValue();
+
+        // Khách bấm "Tôi đã chuyển khoản" nhưng ngân hàng chưa có giao dịch -> chờ đối soát
+        assertEquals("CLAIMED", JsonPath.read(check(sessionId), "$.data.status"));
+
+        // Quá 10 phút: phiên đã báo chuyển khoản không bị hết hạn, đơn giữ nguyên, chưa tính là đã thanh toán
+        PaymentSession s = sessionRepository.findById(sessionId).orElseThrow();
+        s.setExpiresAt(LocalDateTime.now().minusMinutes(1));
+        sessionRepository.save(s);
+        reconciliationService.expireOverdue(0);
+        assertEquals(PaymentSession.Status.CLAIMED, sessionRepository.findById(sessionId).orElseThrow().getStatus());
+        Order order = orderRepository.findById(orderIdOf(session)).orElseThrow();
+        assertEquals(Order.OrderStatus.PENDING, order.getStatus());
+        assertEquals(Order.PaymentStatus.PENDING, order.getPaymentStatus());
+
+        // Tiền về muộn -> vẫn tự xác nhận
+        transfer(amount, code);
+        reconciliationService.syncNow();
+        assertEquals(PaymentSession.Status.PAID, sessionRepository.findById(sessionId).orElseThrow().getStatus());
+        order = orderRepository.findById(orderIdOf(session)).orElseThrow();
+        assertEquals(Order.OrderStatus.CONFIRMED, order.getStatus());
+        assertEquals(Order.PaymentStatus.SUCCESS, order.getPaymentStatus());
+    }
+
+    @Test
+    void adminConfirmsOrRejectsClaimedSession() throws Exception {
+        String adminToken = login("admin@bookstore.vn", "admin123");
+        String first = createSession(books.get(5).getId(), 1);
+        long firstId = id(first);
+        check(firstId);
+
+        // Chỉ admin được duyệt
+        mvc.perform(post("/api/payments/qr/admin/sessions/" + firstId + "/confirm").header("Authorization", bearer(customerToken)))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/payments/qr/admin/sessions/" + firstId + "/confirm").header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("PAID"));
+        Order order = orderRepository.findById(orderIdOf(first)).orElseThrow();
+        assertEquals(Order.OrderStatus.CONFIRMED, order.getStatus());
+        assertEquals(Order.PaymentStatus.SUCCESS, order.getPaymentStatus());
+        mvc.perform(post("/api/payments/qr/admin/sessions/" + firstId + "/confirm").header("Authorization", bearer(adminToken)))
+                .andExpect(status().isBadRequest());
+
+        // Admin không thấy tiền -> hủy đơn, hoàn kho
+        Book book = books.get(3);
+        int stockBefore = stock(book);
+        String second = createSession(book.getId(), 2);
+        long secondId = id(second);
+        check(secondId);
+        mvc.perform(post("/api/payments/qr/admin/sessions/" + secondId + "/reject").header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("CANCELLED"));
+        assertEquals(Order.OrderStatus.CANCELLED, orderRepository.findById(orderIdOf(second)).orElseThrow().getStatus());
+        assertEquals(stockBefore, stock(book));
+    }
+
+    @Test
     void customerCanCancelSessionOnlyOnce() throws Exception {
         Book book = books.get(3);
         int stockBefore = stock(book);
@@ -233,6 +294,13 @@ class QrPaymentFlowTest {
         String json = res.getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         assertEquals(201, res.getStatus(), json);
         return json;
+    }
+
+    private String check(long sessionId) throws Exception {
+        ReflectionTestUtils.setField(reconciliationService, "lastSyncAt", 0L);
+        return mvc.perform(post("/api/payments/qr/session/" + sessionId + "/check").header("Authorization", bearer(customerToken)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private void transfer(long amount, String description) throws Exception {

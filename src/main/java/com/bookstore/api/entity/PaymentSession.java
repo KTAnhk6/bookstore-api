@@ -87,6 +87,7 @@ public class PaymentSession {
 
     public enum Status {
         PENDING,
+        CLAIMED,   // khách bấm "Tôi đã chuyển khoản" nhưng chưa thấy tiền: không tự hết hạn, chờ tiền về hoặc admin duyệt
         PAID,
         EXPIRED,
         CANCELLED

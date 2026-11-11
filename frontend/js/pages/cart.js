@@ -98,7 +98,9 @@ const cartPage = {
                                     <tr>
                                         <td>
                                             <div class="cart-product-info">
-                                                <img src="${esc(item.coverImage)}" alt="${esc(item.title)}" onerror="this.onerror=null; this.src=app.getBookPlaceholder(this.alt, '');">
+                                                <a href="#/book/${item.bookId}" title="${esc(item.title)}">
+                                                    <img src="${esc(item.coverImage)}" alt="${esc(item.title)}" onerror="this.onerror=null; this.src=app.getBookPlaceholder(this.alt, '');" style="cursor: pointer;">
+                                                </a>
                                                 <div>
                                                     <a href="#/book/${item.bookId}" class="font-bold text-sm hover-underline d-block mb-1">${esc(item.title)}</a>
                                                     <span class="text-xs text-muted">${esc(item.authorName)}</span>
@@ -112,9 +114,16 @@ const cartPage = {
                                         </td>
                                         <td>
                                             <div class="quantity-spinner">
-                                                <button class="qty-btn" onclick="cartPage.updateQty(${item.itemId}, ${item.quantity - 1})">-</button>
-                                                <input type="text" class="qty-input" value="${item.quantity}" readonly>
-                                                <button class="qty-btn" onclick="cartPage.updateQty(${item.itemId}, ${item.quantity + 1})" ${item.quantity >= item.stock ? 'disabled' : ''}>+</button>
+                                                <button class="qty-btn" type="button" onclick="cartPage.updateQty(${item.itemId}, ${item.quantity - 1})">-</button>
+                                                <input type="number" 
+                                                       class="qty-input" 
+                                                       value="${item.quantity}" 
+                                                       min="1" 
+                                                       max="${item.stock || 99}" 
+                                                       title="Nhập số lượng"
+                                                       onchange="cartPage.changeQtyInput(${item.itemId}, this, ${item.stock || 99})"
+                                                       onkeydown="if (event.key === 'Enter') this.blur();">
+                                                <button class="qty-btn" type="button" onclick="cartPage.updateQty(${item.itemId}, ${item.quantity + 1})" ${item.quantity >= item.stock ? 'disabled' : ''}>+</button>
                                             </div>
                                         </td>
                                         <td>
@@ -209,7 +218,30 @@ const cartPage = {
         this.draw(document.getElementById('main-view'));
     },
 
+    async changeQtyInput(itemId, inputEl, max) {
+        let val = parseInt(inputEl.value, 10);
+        if (isNaN(val) || val < 1) val = 1;
+        if (max && val > max) {
+            val = max;
+            appToast.warning(`Trong kho chỉ còn ${max} cuốn!`, 'Thông báo');
+        }
+        inputEl.value = val;
+        await this.updateQty(itemId, val);
+    },
+
     async updateQty(itemId, qty) {
+        if (qty < 1) {
+            modalManager.confirm({
+                title: 'Xoá Sản Phẩm',
+                message: 'Bạn có chắc muốn xoá sản phẩm này khỏi giỏ hàng?',
+                confirmText: 'Xoá',
+                confirmType: 'danger',
+                onConfirm: async () => {
+                    await this.removeItem(itemId);
+                }
+            });
+            return;
+        }
         try {
             await store.updateCartQuantity(itemId, qty);
             await this.refresh();

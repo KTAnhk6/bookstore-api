@@ -3,6 +3,7 @@ package com.bookstore.api;
 import com.bookstore.api.dto.request.LoginRequest;
 import com.bookstore.api.dto.request.RegisterRequest;
 import com.bookstore.api.dto.response.AuthResponse;
+import com.bookstore.api.service.RefreshTokenService;
 import com.bookstore.api.entity.User;
 import com.bookstore.api.exception.BadRequestException;
 import com.bookstore.api.repository.UserRepository;
@@ -39,6 +40,15 @@ public class AuthServiceTest {
 
     @Mock
     private AuthenticationManager authenticationManager;
+
+    @Mock
+    private RefreshTokenService refreshTokenService;
+
+    @Mock
+    private com.bookstore.api.repository.PasswordResetTokenRepository passwordResetTokenRepository;
+
+    @Mock
+    private com.bookstore.api.service.MailService mailService;
 
     @InjectMocks
     private AuthServiceImpl authService;

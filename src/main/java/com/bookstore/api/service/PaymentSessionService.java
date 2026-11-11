@@ -32,6 +32,15 @@ public interface PaymentSessionService {
     /** Hết hạn phiên nếu đã quá giờ: hủy đơn, hoàn kho. */
     boolean expireSession(Long sessionId);
 
+    /** Khách báo đã chuyển khoản mà chưa thấy tiền: phiên còn hạn -> CLAIMED (không hủy đơn khi hết 10 phút). */
+    void claimSession(Long sessionId);
+
+    /** Admin xác nhận đã nhận tiền cho phiên CLAIMED: chốt thanh toán, đơn -> CONFIRMED. */
+    PaymentSessionResponse confirmClaim(Long sessionId);
+
+    /** Admin xác nhận không nhận được tiền cho phiên CLAIMED: hủy phiên và đơn (hoàn kho). */
+    PaymentSessionResponse rejectClaim(Long sessionId);
+
     List<PaymentSessionResponse> getAllSessions(PaymentSession.Status status);
 
     List<BankTransactionResponse> getBankTransactions();

@@ -23,6 +23,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Boolean existsByEmail(String email);
 
+    Boolean existsByPhone(String phone);
+
     // Khóa dòng user để 2 request tạo phiên thanh toán cùng lúc không tạo ra 2 phiên
     // Native "FOR UPDATE": @Lock sinh "FOR UPDATE OF" mà MariaDB (XAMPP) báo lỗi cú pháp
     @Query(value = "SELECT * FROM users WHERE id = :id FOR UPDATE", nativeQuery = true)

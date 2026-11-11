@@ -11,7 +11,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Ngân hàng giả lập trong bộ nhớ: lưu các giao dịch "khách chuyển khoản" để test
- * khi chưa đặt BANK_HISTORY_URL. Dữ liệu mất khi tắt server.
+ * khi admin chưa nhập link API ngân hàng. Dữ liệu mất khi tắt server.
  */
 @Component
 public class MockBankStore {

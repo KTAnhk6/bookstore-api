@@ -61,7 +61,7 @@ public class MockBankController {
 
     private void requireMockMode() {
         if (!bankHistoryClient.isMockMode()) {
-            throw new BadRequestException("Server đang đối soát với ngân hàng thật (BANK_HISTORY_URL), ngân hàng giả lập bị tắt");
+            throw new BadRequestException("Server đang đối soát với ngân hàng thật (đã có link API trong Cài đặt thanh toán), ngân hàng giả lập bị tắt");
         }
     }
 }

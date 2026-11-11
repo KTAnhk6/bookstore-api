@@ -45,6 +45,7 @@ public class PaymentSessionServiceImpl implements PaymentSessionService {
     private static final String CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private static final int CODE_RANDOM_LENGTH = 8;
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final String MANUAL_REF_PREFIX = "MANUAL-";
 
     private final PaymentSessionRepository sessionRepository;
     private final BankTransactionRepository bankTransactionRepository;
@@ -148,6 +149,8 @@ public class PaymentSessionServiceImpl implements PaymentSessionService {
         return sessionRepository.findByUserIdAndStatusOrderByCreatedAtDesc(userId, PaymentSession.Status.PENDING).stream()
                 .filter(s -> s.getExpiresAt().isAfter(now))
                 .findFirst()
+                // không có phiên đang chờ quét QR -> mở lại phiên khách đã báo chuyển khoản (đang chờ đối soát)
+                .or(() -> sessionRepository.findByUserIdAndStatusOrderByCreatedAtDesc(userId, PaymentSession.Status.CLAIMED).stream().findFirst())
                 .map(s -> toResponse(s, true))
                 .orElse(null);
     }
@@ -185,10 +188,13 @@ public class PaymentSessionServiceImpl implements PaymentSessionService {
 
         BankTransaction.Result result;
         String note;
+        boolean awaiting = session.getStatus() == PaymentSession.Status.PENDING || session.getStatus() == PaymentSession.Status.CLAIMED;
         if (session.getStatus() == PaymentSession.Status.PAID) {
             result = BankTransaction.Result.DUPLICATE;
-            note = "Phiên đã thanh toán trước đó, khách chuyển thừa -> cần hoàn tiền";
-        } else if (session.getStatus() != PaymentSession.Status.PENDING || order.getStatus() == Order.OrderStatus.CANCELLED) {
+            note = session.getBankRefNo() != null && session.getBankRefNo().startsWith(MANUAL_REF_PREFIX)
+                    ? "Phiên đã được admin xác nhận thủ công trước đó -> kiểm tra: nếu khách chỉ chuyển một lần thì đây chính là khoản đó, không cần hoàn"
+                    : "Phiên đã thanh toán trước đó, khách chuyển thừa -> cần hoàn tiền";
+        } else if (!awaiting || order.getStatus() == Order.OrderStatus.CANCELLED) {
             result = BankTransaction.Result.LATE;
             note = "Tiền về khi phiên đã " + session.getStatus() + " -> cần hoàn tiền thủ công";
         } else {
@@ -237,6 +243,58 @@ public class PaymentSessionServiceImpl implements PaymentSessionService {
         log.info("[QR] Phiên #{} ({}) hết hạn, đã hủy đơn {}", session.getId(), session.getPaymentCode(),
                 session.getOrder().getOrderCode());
         return true;
+    }
+
+    @Override
+    @Transactional
+    public void claimSession(Long sessionId) {
+        PaymentSession session = sessionRepository.lockById(sessionId).orElse(null);
+        if (session == null || session.getStatus() != PaymentSession.Status.PENDING
+                || !session.getExpiresAt().isAfter(LocalDateTime.now())) {
+            return;
+        }
+        session.setStatus(PaymentSession.Status.CLAIMED);
+        sessionRepository.save(session);
+        log.info("[QR] Phiên #{} ({}) khách báo đã chuyển khoản, chưa thấy tiền -> chờ đối soát", session.getId(), session.getPaymentCode());
+    }
+
+    @Override
+    @Transactional
+    public PaymentSessionResponse confirmClaim(Long sessionId) {
+        PaymentSession session = lockClaimed(sessionId);
+        Order order = session.getOrder();
+        if (order.getStatus() == Order.OrderStatus.CANCELLED) {
+            throw new BadRequestException("Đơn hàng " + order.getOrderCode() + " đã bị hủy, không thể xác nhận thanh toán");
+        }
+        String ref = MANUAL_REF_PREFIX + session.getPaymentCode();
+        session.setStatus(PaymentSession.Status.PAID);
+        session.setPaidAt(LocalDateTime.now());
+        session.setBankRefNo(ref);
+        session.setReceivedAmount(session.getReceivedAmount().max(session.getAmount()));
+        sessionRepository.save(session);
+        paymentService.processPayment(order.getId(), ref,
+                "Admin xác nhận đã nhận tiền chuyển khoản QR " + session.getPaymentCode());
+        log.info("[QR] Admin xác nhận đã nhận tiền phiên #{} ({}), đơn {}", session.getId(), session.getPaymentCode(), order.getOrderCode());
+        return toResponse(session, false);
+    }
+
+    @Override
+    @Transactional
+    public PaymentSessionResponse rejectClaim(Long sessionId) {
+        PaymentSession session = lockClaimed(sessionId);
+        close(session, PaymentSession.Status.CANCELLED, "Cửa hàng không nhận được tiền chuyển khoản");
+        log.info("[QR] Admin từ chối phiên #{} ({}), đã hủy đơn {}", session.getId(), session.getPaymentCode(),
+                session.getOrder().getOrderCode());
+        return toResponse(session, false);
+    }
+
+    private PaymentSession lockClaimed(Long sessionId) {
+        PaymentSession session = sessionRepository.lockById(sessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("PaymentSession", "id", sessionId));
+        if (session.getStatus() != PaymentSession.Status.CLAIMED) {
+            throw new BadRequestException("Phiên không ở trạng thái chờ đối soát (" + session.getStatus() + ")");
+        }
+        return session;
     }
 
     @Override

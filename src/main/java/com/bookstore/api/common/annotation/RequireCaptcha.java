@@ -7,7 +7,7 @@ import java.lang.annotation.Target;
 
 /**
  * Đánh dấu endpoint cần xác minh captcha.
- * Hiện chỉ là marker (chưa có aspect kiểm tra) để AuthController compile được.
+ * Kiểm tra bởi CaptchaAspect qua header X-Captcha-Id / X-Captcha-Code (lấy mã tại GET /api/auth/captcha).
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)

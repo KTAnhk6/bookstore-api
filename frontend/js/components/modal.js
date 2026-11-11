@@ -79,7 +79,7 @@ const modalManager = {
 
         body.innerHTML = `
             <div class="d-grid" style="grid-template-columns: 280px 1fr; gap: 2rem;">
-                <div class="quick-view-img-box" style="border-radius: var(--radius-md); overflow: hidden; background: var(--bg-subtle);">
+                <div class="quick-view-img-box" style="border-radius: var(--radius-md); overflow: hidden; background: var(--bg-subtle); cursor: pointer;" onclick="modalManager.close('quick-view-modal'); app.navigate('#/book/${book.id}');" title="Xem chi tiết đầy đủ">
                     <img src="${book.coverImage}" alt="${esc(book.title)}" style="width: 100%; height: 360px; object-fit: cover;">
                 </div>
                 <div class="d-flex flex-column">
@@ -108,7 +108,7 @@ const modalManager = {
                     <div class="d-flex items-center gap-3 mt-auto pt-3" style="border-top: 1px solid var(--border-subtle);">
                         <div class="quantity-spinner">
                             <button class="qty-btn" onclick="const input = document.getElementById('qv-qty'); if(input.value > 1) input.value--;">-</button>
-                            <input type="number" id="qv-qty" class="qty-input" value="1" min="1" max="${book.stock}">
+                            <input type="number" id="qv-qty" class="qty-input" value="1" min="1" max="${book.stock}" onchange="if(this.value < 1) this.value = 1; if(this.value > ${book.stock}) this.value = ${book.stock};">
                             <button class="qty-btn" onclick="const input = document.getElementById('qv-qty'); if(input.value < ${book.stock}) input.value++;">+</button>
                         </div>
                         <button class="btn btn-primary flex-1" onclick="

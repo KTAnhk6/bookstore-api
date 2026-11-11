@@ -62,6 +62,11 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái đơn hàng thành công", orderService.adminUpdateStatus(id, status)));
     }
 
+    @PutMapping("/orders/{id}/refunded")
+    public ResponseEntity<ApiResponse<OrderResponse>> markOrderRefunded(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success("Đã xác nhận hoàn tiền cho đơn hàng", orderService.adminMarkRefunded(id)));
+    }
+
     @GetMapping("/orders/{id}")
     public ResponseEntity<ApiResponse<OrderResponse>> getOrderById(@PathVariable Long id) {
         Order order = orderRepository.findById(id)

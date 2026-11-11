@@ -82,6 +82,42 @@
     border-color: #ffffff;
 }
 
+.btn-danger {
+    background-color: var(--danger);
+    color: #ffffff;
+}
+
+.btn-danger:hover {
+    background-color: #dc2626;
+    transform: translateY(-1px);
+}
+
+.btn-warning {
+    background-color: #f59e0b;
+    color: #ffffff;
+    border: none;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+}
+
+.btn-warning:hover {
+    background-color: #d97706;
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.btn-success {
+    background-color: #10b981;
+    color: #ffffff;
+    border: none;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+}
+
+.btn-success:hover {
+    background-color: #059669;
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
 .btn-outline-danger {
     background: transparent;
     border-color: var(--danger);
@@ -809,4 +845,40 @@
 
 .genre-select-card.selected .check-badge {
     display: flex;
+}
+/* Ô chọn có tìm kiếm (address-picker.js) */
+.combo-list {
+    position: fixed;
+    z-index: 3000;
+    max-height: 240px;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0.25rem;
+    list-style: none;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+}
+
+.combo-list li {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    border-radius: var(--radius-sm, 6px);
+    cursor: pointer;
+    color: var(--text-main);
+}
+
+.combo-list li.active {
+    background-color: var(--primary-light);
+    color: var(--primary);
+}
+
+.combo-list li.selected {
+    font-weight: 700;
+}
+
+.combo-list li.empty {
+    color: var(--text-muted);
+    cursor: default;
 }

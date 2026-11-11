@@ -28,9 +28,22 @@ public class CartItemResponse {
 
     public static CartItemResponse fromEntity(Cart cart) {
         if (cart == null) return null;
-        BigDecimal price = cart.getBook().getSalePrice();
-        BigDecimal itemSubtotal = price.multiply(BigDecimal.valueOf(cart.getQuantity()));
+        BigDecimal originalPrice = cart.getBook().getPrice();
+        BigDecimal salePrice = cart.getBook().getSalePrice();
+        BigDecimal effectivePrice = (salePrice != null && salePrice.compareTo(BigDecimal.ZERO) > 0) ? salePrice : originalPrice;
+        if (effectivePrice == null) {
+            effectivePrice = BigDecimal.ZERO;
+        }
+        BigDecimal itemSubtotal = effectivePrice.multiply(BigDecimal.valueOf(cart.getQuantity()));
         boolean inStock = cart.getBook().getStockQuantity() >= cart.getQuantity() && cart.getBook().getStatus() == com.bookstore.api.entity.Book.Status.AVAILABLE;
+
+        int discountPercent = 0;
+        if (salePrice != null && originalPrice != null && originalPrice.compareTo(BigDecimal.ZERO) > 0 && originalPrice.compareTo(salePrice) > 0) {
+            discountPercent = originalPrice.subtract(salePrice)
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(originalPrice, 0, java.math.RoundingMode.HALF_UP)
+                    .intValue();
+        }
 
         return CartItemResponse.builder()
                 .id(cart.getId())
@@ -39,9 +52,9 @@ public class CartItemResponse {
                 .bookSlug(cart.getBook().getSlug())
                 .bookCoverImage(cart.getBook().getCoverImage())
                 .authorName((cart.getBook().getAuthors() != null && !cart.getBook().getAuthors().isEmpty()) ? cart.getBook().getAuthors().iterator().next().getAuthor().getName() : null)
-                .originalPrice(cart.getBook().getPrice())
-                .salePrice(cart.getBook().getSalePrice())
-                .discountPercent(0)
+                .originalPrice(originalPrice)
+                .salePrice(salePrice)
+                .discountPercent(discountPercent)
                 .quantity(cart.getQuantity())
                 .subtotal(itemSubtotal)
                 .stockQuantity(cart.getBook().getStockQuantity())

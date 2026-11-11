@@ -343,12 +343,12 @@ CREATE TABLE search_history (
 -- 1. USERS
 INSERT INTO users (id, username, password_hash, email, phone, full_name, avatar, gender, birthday, role, loyalty_points, has_set_preferences, preferences_updated_at, status, last_login_at, created_at, updated_at, deleted_at)
 VALUES
-(1, 'admin', '$2a$10$zt6dUMTjNSyzINTGyiAgluna3mPm7qdgl26vj4tFpsFO6WlK5lXNm', 'admin@bookstore.vn', '0901000001', 'Nguyễn Minh Anh', NULL, 'female', '1998-03-12', 'admin', 2500, 1, '2026-09-28 10:15:00', 'active', '2026-10-03 08:20:00', '2026-09-01 09:00:00', '2026-10-03 08:20:00', NULL),
-(2, 'staff01', '$2a$10$zt6dUMTjNSyzINTGyiAgluna3mPm7qdgl26vj4tFpsFO6WlK5lXNm', 'staff01@bookstore.vn', '0901000002', 'Trần Quốc Huy', NULL, 'male', '1997-07-21', 'staff', 800, 1, '2026-09-29 14:20:00', 'active', '2026-10-03 08:05:00', '2026-09-01 09:05:00', '2026-10-03 08:05:00', NULL),
-(3, 'staff02', '$2a$10$zt6dUMTjNSyzINTGyiAgluna3mPm7qdgl26vj4tFpsFO6WlK5lXNm', 'staff02@bookstore.vn', '0901000003', 'Lê Thu Trang', NULL, 'female', '1999-11-05', 'staff', 650, 1, '2026-09-30 16:10:00', 'active', '2026-10-02 17:40:00', '2026-09-01 09:10:00', '2026-10-02 17:40:00', NULL),
-(4, 'user01', '$2a$10$zt6dUMTjNSyzINTGyiAgluna3mPm7qdgl26vj4tFpsFO6WlK5lXNm', 'user01@gmail.com', '0912000004', 'Phạm Ngọc Mai', NULL, 'female', '2001-04-18', 'customer', 320, 1, '2026-09-27 20:10:00', 'active', '2026-10-02 21:30:00', '2026-09-02 10:00:00', '2026-10-02 21:30:00', NULL),
-(5, 'user02', '$2a$10$zt6dUMTjNSyzINTGyiAgluna3mPm7qdgl26vj4tFpsFO6WlK5lXNm', 'user02@gmail.com', '0912000005', 'Đỗ Hoàng Nam', NULL, 'male', '2000-12-09', 'customer', 180, 1, '2026-09-26 18:00:00', 'active', '2026-10-01 19:25:00', '2026-09-02 10:10:00', '2026-10-01 19:25:00', NULL),
-(6, 'user03', '$2a$10$zt6dUMTjNSyzINTGyiAgluna3mPm7qdgl26vj4tFpsFO6WlK5lXNm', 'user03@gmail.com', '0912000006', 'Lý Thanh Tùng', NULL, 'male', '2002-08-15', 'customer', 0, 0, NULL, 'active', NULL, '2026-10-03 08:00:00', '2026-10-03 08:00:00', NULL);
+(1, 'admin', '$2a$10$9o3GpOr3fXdUI78wjtcOPet9HlWvDxEXwFTdJNmT/rovwsFUtr1Gq', 'admin@bookstore.vn', '0901000001', 'Nguyễn Minh Anh', NULL, 'female', '1998-03-12', 'admin', 2500, 1, '2026-09-28 10:15:00', 'active', '2026-10-03 08:20:00', '2026-09-01 09:00:00', '2026-10-03 08:20:00', NULL),
+(2, 'staff01', '$2a$10$cc23HtsnUoyBixtaGXR8IeRzEqOUwJdaQWk10hlOD2fKvi6On5lUm', 'staff01@bookstore.vn', '0901000002', 'Trần Quốc Huy', NULL, 'male', '1997-07-21', 'staff', 800, 1, '2026-09-29 14:20:00', 'active', '2026-10-03 08:05:00', '2026-09-01 09:05:00', '2026-10-03 08:05:00', NULL),
+(3, 'staff02', '$2a$10$cc23HtsnUoyBixtaGXR8IeRzEqOUwJdaQWk10hlOD2fKvi6On5lUm', 'staff02@bookstore.vn', '0901000003', 'Lê Thu Trang', NULL, 'female', '1999-11-05', 'staff', 650, 1, '2026-09-30 16:10:00', 'active', '2026-10-02 17:40:00', '2026-09-01 09:10:00', '2026-10-02 17:40:00', NULL),
+(4, 'user01', '$2a$10$cc23HtsnUoyBixtaGXR8IeRzEqOUwJdaQWk10hlOD2fKvi6On5lUm', 'user01@gmail.com', '0912000004', 'Phạm Ngọc Mai', NULL, 'female', '2001-04-18', 'customer', 320, 1, '2026-09-27 20:10:00', 'active', '2026-10-02 21:30:00', '2026-09-02 10:00:00', '2026-10-02 21:30:00', NULL),
+(5, 'user02', '$2a$10$cc23HtsnUoyBixtaGXR8IeRzEqOUwJdaQWk10hlOD2fKvi6On5lUm', 'user02@gmail.com', '0912000005', 'Đỗ Hoàng Nam', NULL, 'male', '2000-12-09', 'customer', 180, 1, '2026-09-26 18:00:00', 'active', '2026-10-01 19:25:00', '2026-09-02 10:10:00', '2026-10-01 19:25:00', NULL),
+(6, 'user03', '$2a$10$cc23HtsnUoyBixtaGXR8IeRzEqOUwJdaQWk10hlOD2fKvi6On5lUm', 'user03@gmail.com', '0912000006', 'Lý Thanh Tùng', NULL, 'male', '2002-08-15', 'customer', 0, 0, NULL, 'active', NULL, '2026-10-03 08:00:00', '2026-10-03 08:00:00', NULL);
 
 -- 2. ADDRESSES
 INSERT INTO addresses (id, user_id, receiver_name, receiver_phone, province, district, ward, detail, is_default, created_at, updated_at)
@@ -561,14 +561,14 @@ VALUES
 (76, 'Lục Vân Tiên', 'luc-van-tien', '9786041000076', 'Truyện thơ Nôm giáo dục luân lý nghĩa khí ngời sáng của Đồ Chiểu.', 'https://commons.wikimedia.org/wiki/Special:FilePath/Tranh_Ngưu_Lang_Chức_Nữ_thời_nhà_Nguyễn_trong_sách_Vân_Tiên_Cổ_Tích_Truyện_(1897).jpg', 4, 1854, 210, 'vi', '14x20 cm', 230, 80000, 72000, 75, 30, 'available', '2026-09-01 09:00:00', '2026-10-03 08:00:00'),
 (77, 'Kinh Thánh (Bản tiếng Việt)', 'kinh-thanh-ban-tieng-viet', '9786041000077', 'Kinh Thánh Cựu Ước và Tân Ước do Hồng y Trịnh Văn Căn chủ dịch.', 'https://commons.wikimedia.org/wiki/Special:FilePath/Kinh_Thánh_(G.M.Trịnh_Văn_Căn_dịch,_1985).jpg', 7, 1985, 1800, 'vi', '16x24 cm', 1850, 350000, 315000, 40, 15, 'available', '2026-09-01 09:00:00', '2026-10-03 08:00:00'),
 (78, 'Tuổi thơ dữ dội', 'tuoi-tho-du-doi', '9786041000078', 'Hùng ca cảm động rơi nước mắt về đội thiếu niên trinh sát Vệ Quốc Đoàn.', 'https://vi.wikipedia.org/wiki/Special:FilePath/Tuổi_thơ_dữ_dội.jpg', 2, 1988, 760, 'vi', '14x20 cm', 780, 195000, 175500, 90, 47, 'available', '2026-09-01 09:00:00', '2026-10-03 08:00:00'),
-(79, 'Thơ thơ (Xuân Diệu)', 'tho-tho-xuan-dieu', '9786041000079', 'Tập thơ đầu tay đánh dấu đỉnh cao thơ lãng mạn Việt Nam.', 'https://vi.wikipedia.org/wiki/Special:FilePath/Thơ_thơ.jpg', 4, 1938, 140, 'vi', '13x19 cm', 160, 68000, 61200, 70, 26, 'available', '2026-09-01 09:00:00', '2026-10-03 08:00:00'),
-(80, 'Vang bóng một thời', 'vang-bong-mot-thoi', '9786041000080', 'Tập truyện ngắn ghi lại thú chơi tao nhã một thời xưa cũ của cụ Nguyễn Tuân.', 'https://vi.wikipedia.org/wiki/Special:FilePath/Vang_bóng_một_thời.jpg', 4, 1940, 210, 'vi', '13x20 cm', 230, 85000, NULL, 80, 32, 'available', '2026-09-01 09:00:00', '2026-10-03 08:00:00'),
+(79, 'Thơ thơ (Xuân Diệu)', 'tho-tho-xuan-dieu', '9786041000079', 'Tập thơ đầu tay đánh dấu đỉnh cao thơ lãng mạn Việt Nam.', 'https://salt.tikicdn.com/cache/750x750/media/catalog/product/product/87/d2/39/d1d0f34ceddd02926bb93a560c864c1d.jpg', 4, 1938, 140, 'vi', '13x19 cm', 160, 68000, 61200, 70, 26, 'available', '2026-09-01 09:00:00', '2026-10-03 08:00:00'),
+(80, 'Vang bóng một thời', 'vang-bong-mot-thoi', '9786041000080', 'Tập truyện ngắn ghi lại thú chơi tao nhã một thời xưa cũ của cụ Nguyễn Tuân.', 'https://upload.wikimedia.org/wikipedia/vi/6/6e/Vang_bong_mot_thoi.jpeg', 4, 1940, 210, 'vi', '13x20 cm', 230, 85000, NULL, 80, 32, 'available', '2026-09-01 09:00:00', '2026-10-03 08:00:00'),
 (81, 'First Folio (Shakespeare)', 'first-folio-shakespeare', '9786041000081', 'Bộ tập hợp toàn diện các vở kịch kinh điển đầu tiên của Shakespeare.', 'https://en.wikipedia.org/wiki/Special:FilePath/First_Folio.jpg', 6, 1623, 900, 'vi', '20x30 cm', 1900, 317000, 285300, 20, 5, 'available', '2026-09-01 09:00:00', '2026-10-03 08:00:00'),
 (82, 'Origin of Species', 'origin-of-species', '9786041000082', 'Nguồn gốc các loài - tác phẩm làm thay đổi vĩnh viễn tư duy khoa học.', 'https://en.wikipedia.org/wiki/Special:FilePath/Origin_of_Species_title_page.jpg', 10, 1859, 500, 'vi', '16x24 cm', 600, 185000, 166500, 45, 14, 'available', '2026-09-01 09:00:00', '2026-10-03 08:00:00'),
 (83, 'On Liberty', 'on-liberty', '9786041000083', 'Bàn về tự do - luận thuyết chính trị và tự do cá nhân mẫu mực của Mill.', 'https://en.wikipedia.org/wiki/Special:FilePath/On_Liberty_title_page.jpg', 6, 1859, 210, 'vi', '14x21 cm', 240, 351000, 315900, 50, 18, 'available', '2026-09-01 09:00:00', '2026-10-03 08:00:00'),
 (84, 'The Wealth of Nations', 'the-wealth-of-nations', '9786041000084', 'Của cải của các dân tộc - nền tảng kinh tế thị trường cổ điển.', 'https://en.wikipedia.org/wiki/Special:FilePath/Wealth_of_Nations_title_page.jpg', 9, 1776, 950, 'vi', '16x24 cm', 1100, 320000, 288000, 35, 11, 'available', '2026-09-01 09:00:00', '2026-10-03 08:00:00'),
 (85, 'Critique of Pure Reason', 'critique-of-pure-reason', '9786041000085', 'Phê phán lý tính thuần túy - kiệt tác triết học nhận thức của Kant.', 'https://en.wikipedia.org/wiki/Special:FilePath/Critique_of_Pure_Reason_title_page.jpg', 6, 1781, 800, 'vi', '16x24 cm', 950, 290000, NULL, 25, 6, 'available', '2026-09-01 09:00:00', '2026-10-03 08:00:00'),
-(86, 'The Communist Manifesto', 'the-communist-manifesto', '9786041000086', 'Tuyên ngôn của Đảng Cộng sản của Karl Marx và Friedrich Engels.', 'https://en.wikipedia.org/wiki/Special:FilePath/The_Communist_Manifesto_title_page.jpg', 5, 1848, 120, 'vi', '13x19 cm', 150, 50000, 45000, 100, 35, 'available', '2026-09-01 09:00:00', '2026-10-03 08:00:00'),
+(86, 'The Communist Manifesto', 'the-communist-manifesto', '9786041000086', 'Tuyên ngôn của Đảng Cộng sản của Karl Marx và Friedrich Engels.', 'https://covers.openlibrary.org/b/id/7623352-L.jpg', 5, 1848, 120, 'vi', '13x19 cm', 150, 50000, 45000, 100, 35, 'available', '2026-09-01 09:00:00', '2026-10-03 08:00:00'),
 (87, 'Leviathan', 'leviathan', '9786041000087', 'Khế ước xã hội và quyền lực nhà nước bảo đảm an ninh của Hobbes.', 'https://en.wikipedia.org/wiki/Special:FilePath/Leviathan_title_page.jpg', 6, 1651, 620, 'vi', '16x24 cm', 720, 210000, 189000, 30, 8, 'available', '2026-09-01 09:00:00', '2026-10-03 08:00:00'),
 (88, 'The Catcher in the Rye', 'the-catcher-in-the-rye', '9786041000088', 'Bắt trẻ đồng xanh - bức tranh tâm lý nổi loạn của tuổi trưởng thành.', 'https://en.wikipedia.org/wiki/Special:FilePath/The_Catcher_in_the_Rye_(1951,_first_edition_cover).jpg', 6, 1951, 260, 'vi', '13x20 cm', 280, 105000, 94500, 80, 36, 'available', '2026-09-01 09:00:00', '2026-10-03 08:00:00'),
 (89, 'Beowulf', 'beowulf', '9786041000089', 'Sử thi anh hùng cổ tiếng Anh chiến đấu diệt quái vật Grendel.', 'https://en.wikipedia.org/wiki/Special:FilePath/Beowulf_cotton_ms_vitellius_a_xv_f._132r.jpg', 4, 1000, 230, 'vi', '14x21 cm', 260, 95000, 85500, 40, 10, 'available', '2026-09-01 09:00:00', '2026-10-03 08:00:00'),
@@ -939,3 +939,16 @@ SELECT book_id, SUM(is_primary) AS primary_cnt FROM book_categories GROUP BY boo
 SELECT b.id, COUNT(ba.author_id) AS author_cnt FROM books b LEFT JOIN book_authors ba ON ba.book_id = b.id GROUP BY b.id HAVING author_cnt < 1;
 SELECT o.id, o.subtotal, SUM(oi.subtotal) AS items_total FROM orders o JOIN order_items oi ON oi.order_id = o.id GROUP BY o.id, o.subtotal HAVING o.subtotal <> items_total;
 
+
+-- -----------------------------------------------------
+-- Table app_settings (Lưu cấu hình hệ thống động như API MB Bank)
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS app_settings (
+    setting_key VARCHAR(100) NOT NULL PRIMARY KEY,
+    setting_value TEXT NULL,
+    updated_at DATETIME NULL
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+
+-- Đảm bảo mốc thời gian created_at của sách phân tán đều để phân trang không bị trùng lặp
+UPDATE books SET created_at = DATE_ADD('2026-09-01 00:00:00', INTERVAL id MINUTE);

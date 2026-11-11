@@ -44,3 +44,8 @@ uploads/
 # Mật khẩu và bản dump database có dữ liệu người dùng
 TAI_KHOAN.md
 db/bookstore_hien_tai.sql
+
+# Cau hinh cuc bo chua token API ngan hang that
+application-local.properties
+bin/
+bo sung/

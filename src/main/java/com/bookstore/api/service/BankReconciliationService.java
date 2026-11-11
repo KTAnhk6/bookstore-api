@@ -45,7 +45,8 @@ public class BankReconciliationService {
             initialDelayString = "${payment.bank.poll-interval-ms:15000}")
     public void scheduledRun() {
         boolean bankOk = true;
-        if (sessionRepository.existsByCreatedAtAfter(LocalDateTime.now().minusMinutes(MATCH_WINDOW_MINUTES))) {
+        if (sessionRepository.existsByCreatedAtAfter(LocalDateTime.now().minusMinutes(MATCH_WINDOW_MINUTES))
+                || sessionRepository.existsByStatus(PaymentSession.Status.CLAIMED)) {
             bankOk = syncNow().ok();
         }
         expireOverdue(bankOk ? 0 : EXPIRE_GRACE_WHEN_BANK_DOWN_MINUTES);
@@ -61,11 +62,14 @@ public class BankReconciliationService {
     public synchronized SyncResult syncNow() {
         lastSyncAt = System.currentTimeMillis();
         List<PaymentSession> candidates = sessionRepository.findByCreatedAtAfter(LocalDateTime.now().minusMinutes(MATCH_WINDOW_MINUTES));
-        if (candidates.isEmpty()) {
-            return new SyncResult(true, 0, 0, null);
-        }
         Map<String, Long> sessionIdByCode = new HashMap<>();
         candidates.forEach(s -> sessionIdByCode.put(s.getPaymentCode(), s.getId()));
+        // Khách đã báo chuyển khoản: tiếp tục dò tiền về cho đến khi khớp hoặc admin xử lý
+        sessionRepository.findByStatus(PaymentSession.Status.CLAIMED)
+                .forEach(s -> sessionIdByCode.put(s.getPaymentCode(), s.getId()));
+        if (sessionIdByCode.isEmpty()) {
+            return new SyncResult(true, 0, 0, null);
+        }
 
         List<BankHistoryClient.IncomingTransaction> incoming;
         try {

@@ -133,7 +133,7 @@
 
     <div id="mockPanel" style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
       <h2><span class="step">4</span>Ngân hàng giả lập (thay cho app ngân hàng)</h2>
-      <div class="muted" style="margin-bottom:8px">Chỉ bật khi server chưa đặt BANK_HISTORY_URL. Giao dịch được ghi vào "sao kê" giả, server đối soát giống hệt API MB Bank thật.</div>
+      <div class="muted" style="margin-bottom:8px">Chỉ bật khi admin chưa nhập link API ngân hàng ở Quản trị > Thanh Toán QR > Cài đặt thanh toán. Giao dịch được ghi vào "sao kê" giả, server đối soát giống hệt API MB Bank thật.</div>
       <div class="row">
         <button onclick="mockTransfer('exact')">Chuyển đúng tiền + nội dung</button>
         <button class="warn" onclick="mockTransfer('short')">Chuyển thiếu 10.000đ</button>
@@ -183,9 +183,6 @@ const $ = id => document.getElementById(id);
 const money = v => v == null ? '-' : Number(v).toLocaleString('vi-VN') + 'đ';
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let token = load('qrtest.token'), adminToken = null, current = null, pollTimer = null, tickTimer = null, mode = null;
-if (window.location.protocol.startsWith('http') && window.location.origin) {
-  $('apiBase').value = window.location.origin;
-}
 
 function load(k) { try { return localStorage.getItem(k); } catch { return null; } }
 function save(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} }

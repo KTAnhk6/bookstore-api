@@ -56,7 +56,7 @@ public class AddressServiceImpl implements AddressService {
                 .recipientName(request.getRecipientName().trim())
                 .phone(request.getPhone().trim())
                 .province(request.getProvince().trim())
-                .district(request.getDistrict().trim())
+                .district(request.getDistrict() == null ? "" : request.getDistrict().trim())
                 .ward(request.getWard().trim())
                 .detailAddress(request.getDetailAddress().trim())
                 .isDefault(isDefault)
@@ -87,7 +87,7 @@ public class AddressServiceImpl implements AddressService {
         address.setRecipientName(request.getRecipientName().trim());
         address.setPhone(request.getPhone().trim());
         address.setProvince(request.getProvince().trim());
-        address.setDistrict(request.getDistrict().trim());
+        address.setDistrict(request.getDistrict() == null ? "" : request.getDistrict().trim());
         address.setWard(request.getWard().trim());
         address.setDetailAddress(request.getDetailAddress().trim());
         if (request.getAddressType() != null) {

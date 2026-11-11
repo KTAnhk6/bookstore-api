@@ -70,10 +70,13 @@ public class OrderServiceImpl implements OrderService {
             if (recipientName == null || recipientName.isBlank() ||
                 phone == null || phone.isBlank() ||
                 province == null || province.isBlank() ||
-                district == null || district.isBlank() ||
                 ward == null || ward.isBlank() ||
                 detailAddress == null || detailAddress.isBlank()) {
                 throw new BadRequestException("Vui lòng cung cấp đầy đủ thông tin địa chỉ giao hàng");
+            }
+            phone = phone.replaceAll("[\\s.\\-]", "");
+            if (!phone.matches("^(0|\\+84)[0-9]{9}$")) {
+                throw new BadRequestException("Số điện thoại không hợp lệ (10 số, bắt đầu bằng 0 hoặc +84)");
             }
         }
 
@@ -118,7 +121,8 @@ public class OrderServiceImpl implements OrderService {
                 throw new BadRequestException("Sách '" + book.getTitle() + "' chỉ còn " + book.getStockQuantity() + " cuốn trong kho");
             }
 
-            BigDecimal itemTotal = book.getSalePrice().multiply(BigDecimal.valueOf(qty));
+            BigDecimal itemPrice = book.getEffectivePrice() != null ? book.getEffectivePrice() : BigDecimal.ZERO;
+            BigDecimal itemTotal = itemPrice.multiply(BigDecimal.valueOf(qty));
             subtotal = subtotal.add(itemTotal);
         }
 
@@ -137,6 +141,7 @@ public class OrderServiceImpl implements OrderService {
             if (!coupon.isValid(subtotal)) {
                 throw new BadRequestException("Mã giảm giá không đủ điều kiện áp dụng cho đơn hàng này");
             }
+            checkCouponUsage(userId, coupon);
 
             couponDiscount = coupon.calculateDiscount(subtotal);
             coupon.setUsedCount(coupon.getUsedCount() + 1);
@@ -180,7 +185,8 @@ public class OrderServiceImpl implements OrderService {
         Order order = Order.builder()
                 .orderCode(orderCode)
                 .user(user)
-                .shippingAddress(recipientName + ", " + phone + " - " + detailAddress + ", " + ward + ", " + district + ", " + province)
+                .shippingAddress(recipientName + ", " + phone + " - " + detailAddress + ", " + ward + ", "
+                        + (district == null || district.isBlank() ? "" : district + ", ") + province)
                 .note(request.getNote())
                 .subtotal(subtotal)
                 .shippingFee(shippingFee)
@@ -200,14 +206,15 @@ public class OrderServiceImpl implements OrderService {
             Book book = item.book();
             int qty = item.quantity();
 
+            BigDecimal unitPrice = book.getEffectivePrice() != null ? book.getEffectivePrice() : BigDecimal.ZERO;
             OrderItem orderItem = OrderItem.builder()
                     .order(order)
                     .book(book)
                     .bookTitle(book.getTitle())
                     .bookCoverImage(book.getCoverImage())
-                    .price(book.getSalePrice())
+                    .price(unitPrice)
                     .quantity(qty)
-                    .subtotal(book.getSalePrice().multiply(BigDecimal.valueOf(qty)))
+                    .subtotal(unitPrice.multiply(BigDecimal.valueOf(qty)))
                     .build();
 
             orderItems.add(orderItem);
@@ -286,6 +293,9 @@ public class OrderServiceImpl implements OrderService {
         if (order.getStatus() != Order.OrderStatus.PENDING && order.getStatus() != Order.OrderStatus.CONFIRMED) {
             throw new BadRequestException("Chỉ có thể hủy đơn hàng khi đơn đang ở trạng thái Chờ xử lý hoặc Đã xác nhận");
         }
+        if (order.getPaymentStatus() == Order.PaymentStatus.SUCCESS) {
+            throw new BadRequestException("Đơn hàng đã thanh toán, vui lòng liên hệ shop để huỷ và hoàn tiền");
+        }
 
         order.setStatus(Order.OrderStatus.CANCELLED);
         order.setNote("Hủy đơn hàng: " + request.getReason());
@@ -301,9 +311,31 @@ public class OrderServiceImpl implements OrderService {
         }
 
         failOrRefundPayment(order);
+        restoreCoupon(order);
 
         order = orderRepository.save(order);
         return OrderResponse.fromEntity(order);
+    }
+
+    private void restoreCoupon(Order order) {
+        Coupon coupon = order.getCoupon();
+        if (coupon != null && coupon.getUsedCount() != null && coupon.getUsedCount() > 0) {
+            coupon.setUsedCount(coupon.getUsedCount() - 1);
+            couponRepository.save(coupon);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public void checkCouponUsage(Long userId, Coupon coupon) {
+        if (userId == null) return;
+        if (Boolean.TRUE.equals(coupon.getFirstOrderOnly())
+                && orderRepository.existsByUserIdAndStatusNot(userId, Order.OrderStatus.CANCELLED)) {
+            throw new BadRequestException("Mã " + coupon.getCode() + " chỉ áp dụng cho đơn hàng đầu tiên");
+        }
+        if (orderRepository.existsByUserIdAndCouponIdAndStatusNot(userId, coupon.getId(), Order.OrderStatus.CANCELLED)) {
+            throw new BadRequestException("Bạn đã sử dụng mã " + coupon.getCode() + " rồi");
+        }
     }
 
     private void restoreStock(Order order) {
@@ -323,16 +355,25 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
+    /** Đơn chưa thu tiền -> FAILED; đã thu tiền -> REFUND_PENDING, chờ admin hoàn tiền xong mới chuyển REFUNDED. */
     private void failOrRefundPayment(Order order) {
-        // Update payment if exists
+        Order.PaymentStatus next = order.getPaymentStatus() == Order.PaymentStatus.SUCCESS
+                ? Order.PaymentStatus.REFUND_PENDING : Order.PaymentStatus.FAILED;
+        order.setPaymentStatus(next);
         paymentRepository.findByOrderId(order.getId()).ifPresent(payment -> {
-            if (payment.getStatus() == Order.PaymentStatus.SUCCESS) {
-                payment.setStatus(Order.PaymentStatus.REFUNDED);
-            } else {
-                payment.setStatus(Order.PaymentStatus.FAILED);
-            }
+            payment.setStatus(next);
             paymentRepository.save(payment);
         });
+    }
+
+    private static boolean canTransition(Order.OrderStatus from, Order.OrderStatus to) {
+        return switch (to) {
+            case CANCELLED -> from == Order.OrderStatus.PENDING || from == Order.OrderStatus.CONFIRMED
+                    || from == Order.OrderStatus.PROCESSING;
+            case RETURNED -> from != Order.OrderStatus.CANCELLED && from != Order.OrderStatus.RETURNED;
+            // Luồng thường chỉ được đi tới, không quay lui
+            default -> from.ordinal() < to.ordinal();
+        };
     }
 
     @Override
@@ -345,17 +386,39 @@ public class OrderServiceImpl implements OrderService {
         if (current == Order.OrderStatus.CANCELLED || current == Order.OrderStatus.RETURNED) {
             throw new BadRequestException("Đơn hàng đã " + (current == Order.OrderStatus.CANCELLED ? "huỷ" : "hoàn trả") + ", không thể đổi trạng thái");
         }
+        if (!canTransition(current, status)) {
+            throw new BadRequestException("Không thể chuyển đơn hàng từ " + current + " sang " + status);
+        }
         if (status == Order.OrderStatus.CANCELLED || status == Order.OrderStatus.RETURNED) {
             restoreStock(order);
             failOrRefundPayment(order);
-            if (order.getPaymentStatus() == Order.PaymentStatus.SUCCESS) {
-                order.setPaymentStatus(Order.PaymentStatus.REFUNDED);
-            }
+            restoreCoupon(order);
         }
         order.setStatus(status);
         if (status == Order.OrderStatus.DELIVERED && order.getPaymentMethod() == Order.PaymentMethod.COD) {
             order.setPaymentStatus(Order.PaymentStatus.SUCCESS);
+            paymentRepository.findByOrderId(order.getId()).ifPresent(payment -> {
+                payment.setStatus(Order.PaymentStatus.SUCCESS);
+                if (payment.getPaidAt() == null) payment.setPaidAt(LocalDateTime.now());
+                paymentRepository.save(payment);
+            });
         }
+        return OrderResponse.fromEntity(orderRepository.save(order));
+    }
+
+    @Override
+    @Transactional
+    public OrderResponse adminMarkRefunded(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+        if (order.getPaymentStatus() != Order.PaymentStatus.REFUND_PENDING) {
+            throw new BadRequestException("Đơn hàng không ở trạng thái chờ hoàn tiền");
+        }
+        order.setPaymentStatus(Order.PaymentStatus.REFUNDED);
+        paymentRepository.findByOrderId(order.getId()).ifPresent(payment -> {
+            payment.setStatus(Order.PaymentStatus.REFUNDED);
+            paymentRepository.save(payment);
+        });
         return OrderResponse.fromEntity(orderRepository.save(order));
     }
 

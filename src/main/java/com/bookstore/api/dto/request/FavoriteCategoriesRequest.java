@@ -13,7 +13,6 @@ import java.util.List;
 @Builder
 public class FavoriteCategoriesRequest {
 
-    @NotEmpty(message = "Danh sách thể loại yêu thích không được để trống")
-    @Size(min = 1, max = 5, message = "Vui lòng chọn từ 1 đến 5 thể loại yêu thích")
+    @Size(max = 5, message = "Vui lòng chọn tối đa 5 thể loại yêu thích")
     private List<Long> categoryIds;
 }
