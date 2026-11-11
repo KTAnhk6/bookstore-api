@@ -26,23 +26,25 @@ public class RecommendationServiceImpl implements RecommendationService {
     @Override
     @Transactional(readOnly = true)
     public List<BookResponse> getPersonalizedRecommendations(Long userId, int limit) {
+        if (limit <= 0) {
+            return Collections.emptyList();
+        }
         if (userId == null) {
             return getTrendingRecommendations(limit);
         }
 
-        Map<Long, Book> recommendedBooksMap = new LinkedHashMap<>();
-
-        // 1. Get user favorite categories (PRIORITY #1 - Lọc chuẩn xác theo 5 sở thích người dùng chọn)
+        // 1. Khi người dùng đã chọn sở thích -> chỉ trả về sách thuộc đúng các thể loại đó, không bù thêm sách ngoài tag
         List<Long> userFavCategoryIds = favoriteCategoryRepository.findCategoryIdsByUserId(userId);
         if (userFavCategoryIds != null && !userFavCategoryIds.isEmpty()) {
             List<Book> favCategoryBooks = bookRepository.findByCategoriesIn(
                     userFavCategoryIds,
                     Book.Status.AVAILABLE,
-                    PageRequest.of(0, Math.max(limit * 3, 50))
+                    PageRequest.of(0, Math.max(limit * 3, 200))
             ).getContent();
 
-            // Sắp xếp sách theo gu sở thích: ưu tiên số lượng bán chạy và sách mới cập nhật trong các thể loại đã chọn
-            favCategoryBooks.stream()
+            List<BookResponse> matched = favCategoryBooks.stream()
+                    .collect(Collectors.toMap(Book::getId, b -> b, (a, b) -> a, LinkedHashMap::new))
+                    .values().stream()
                     .sorted((b1, b2) -> {
                         int sold1 = b1.getSoldQuantity() != null ? b1.getSoldQuantity() : 0;
                         int sold2 = b2.getSoldQuantity() != null ? b2.getSoldQuantity() : 0;
@@ -50,21 +52,27 @@ public class RecommendationServiceImpl implements RecommendationService {
                             return Integer.compare(sold2, sold1);
                         }
                         if (b1.getCreatedAt() != null && b2.getCreatedAt() != null) {
-                            return b2.getCreatedAt().compareTo(b1.getCreatedAt());
+                            int cmp = b2.getCreatedAt().compareTo(b1.getCreatedAt());
+                            if (cmp != 0) {
+                                return cmp;
+                            }
                         }
                         return Long.compare(b2.getId(), b1.getId());
                     })
-                    .forEach(b -> recommendedBooksMap.put(b.getId(), b));
+                    .limit(limit)
+                    .map(BookResponse::fromEntity)
+                    .collect(Collectors.toList());
+
+            return ratingEnricher.enrich(matched);
         }
 
-        // 2. Nếu chưa đủ sách hoặc người dùng chưa chọn sở thích, bổ sung từ thể loại trong các đơn đã mua (PRIORITY #2)
+        Map<Long, Book> recommendedBooksMap = new LinkedHashMap<>();
+
+        // 2. Khi người dùng chưa chọn sở thích -> bổ sung từ thể loại trong các đơn đã mua (PRIORITY #2)
         if (recommendedBooksMap.size() < limit) {
             List<Long> orderCategoryIds = orderRepository.findPurchasedCategoryIdsByUserId(userId);
             if (orderCategoryIds != null && !orderCategoryIds.isEmpty()) {
                 Set<Long> remainingOrderCatIds = new LinkedHashSet<>(orderCategoryIds);
-                if (userFavCategoryIds != null) {
-                    remainingOrderCatIds.removeAll(userFavCategoryIds);
-                }
                 if (!remainingOrderCatIds.isEmpty()) {
                     List<Book> orderBooks = bookRepository.findByCategoriesIn(
                             remainingOrderCatIds,

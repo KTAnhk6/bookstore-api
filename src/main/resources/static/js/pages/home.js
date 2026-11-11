@@ -120,9 +120,18 @@ const homePage = {
                             <a href="#/recommendations" class="btn btn-primary btn-sm">Xem tất cả đề xuất <i class="fa-solid fa-arrow-right ml-1"></i></a>
                         </div>
                     </div>
-                    <div class="book-grid">
-                        ${(recommendedBooks.length ? recommendedBooks : bestsellerBooks).map(b => this.renderBookCard(b)).join('')}
-                    </div>
+                    ${store.currentUser && hasFavorites && recommendedBooks.length === 0 ? `
+                        <div class="text-center py-8" style="background: var(--bg-surface); border-radius: var(--radius-lg); border: 1px dashed var(--border-color); padding: 2rem 1rem;">
+                            <p class="text-muted text-sm mb-3">Hiện chưa có cuốn sách nào thuộc thể loại bạn đã chọn.</p>
+                            <button class="btn btn-primary btn-sm" onclick="favoriteGenresModal.open()">
+                                <i class="fa-solid fa-sliders mr-1"></i> Đổi Sở Thích
+                            </button>
+                        </div>
+                    ` : `
+                        <div class="book-grid">
+                            ${(recommendedBooks.length ? recommendedBooks : bestsellerBooks).map(b => this.renderBookCard(b)).join('')}
+                        </div>
+                    `}
                 </div>
             </section>
 
