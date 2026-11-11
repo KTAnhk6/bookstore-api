@@ -5,12 +5,12 @@
  */
 
 const API_CONFIG = {
-    BASE_URL: (window.location.port === '3000') ? 'http://localhost:8080/api' : '/api',
+    BASE_URL: 'http://localhost:8080/api',
     TIMEOUT: 20000,
     TOKEN_KEY: 'booknest_jwt_token',
+    REFRESH_KEY: 'booknest_refresh_token',
     USER_KEY: 'booknest_user_profile'
 };
-const API_BASE_URL = API_CONFIG.BASE_URL;
 
 const apiClient = axios.create({
     baseURL: API_CONFIG.BASE_URL,
@@ -24,15 +24,61 @@ apiClient.interceptors.request.use((config) => {
     return config;
 });
 
+// Access token sống 15 phút. Hết hạn thì đổi refresh token lấy mã mới; nhiều request
+// cùng bị 401 một lúc chỉ gọi /auth/refresh một lần.
+let refreshPromise = null;
+function refreshAccessToken() {
+    if (!refreshPromise) {
+        const used = localStorage.getItem(API_CONFIG.REFRESH_KEY);
+        refreshPromise = axios.post(`${API_CONFIG.BASE_URL}/auth/refresh`, { refreshToken: used }, { timeout: API_CONFIG.TIMEOUT })
+            .then(res => {
+                const d = res.data.data;
+                localStorage.setItem(API_CONFIG.TOKEN_KEY, d.token);
+                localStorage.setItem(API_CONFIG.REFRESH_KEY, d.refreshToken);
+                return d.token;
+            })
+            .catch(err => {
+                // Tab khác vừa làm mới trước (mã cũ đã bị thay) thì dùng luôn mã mới của tab đó
+                const current = localStorage.getItem(API_CONFIG.REFRESH_KEY);
+                if (current && current !== used) return localStorage.getItem(API_CONFIG.TOKEN_KEY);
+                throw err;
+            })
+            .finally(() => { refreshPromise = null; });
+    }
+    return refreshPromise;
+}
+
 apiClient.interceptors.response.use(
     (response) => response.data,
-    (error) => {
+    async (error) => {
         const status = error.response ? error.response.status : null;
-        const body = error.response && error.response.data;
+        const config = error.config || {};
+        const isAuthCall = /^\/auth\/(login|register|refresh|logout|forgot-password|reset-password|captcha)$/.test(config.url || '');
+        if (status === 401 && !config._retried && !isAuthCall && localStorage.getItem(API_CONFIG.REFRESH_KEY)) {
+            try {
+                await refreshAccessToken();
+                config._retried = true;
+                return await apiClient(config);
+            } catch (retryErr) {
+                // Lỗi của lần gửi lại (không phải 401) thì trả về như bình thường
+                if (retryErr && retryErr.status && retryErr.status !== 401) throw retryErr;
+                // Refresh token hết hạn / bị thu hồi -> đăng xuất như cũ bên dưới
+            }
+        }
+
+        let body = error.response && error.response.data;
+        if (body instanceof Blob) {
+            try {
+                const text = await body.text();
+                body = JSON.parse(text);
+            } catch (e) {
+                body = null;
+            }
+        }
         let message = 'Đã có lỗi xảy ra khi kết nối máy chủ!';
 
         if (!error.response) {
-            message = 'Không kết nối được máy chủ. Hãy chắc chắn backend đang chạy.';
+            message = 'Không kết nối được máy chủ (http://localhost:8080). Hãy chắc chắn backend đang chạy.';
         } else if (body && body.data && typeof body.data === 'object' && !Array.isArray(body.data)) {
             message = Object.values(body.data).join('. ') || body.message || message;
         } else if (body && body.message) {
@@ -248,16 +294,20 @@ const clean = (obj) => Object.fromEntries(Object.entries(obj).filter(([, v]) => 
  * ------------------------------------------------------------------------- */
 const ApiService = {
     auth: {
-        async login(usernameOrEmail, password) {
-            const res = await apiClient.post('/auth/login', { usernameOrEmail, password });
-            return { token: res.data.token, user: Adapter.user(res.data.user) };
+        async captcha() { return (await apiClient.get('/auth/captcha')).data; },
+        // captchaHeaders: { 'X-Captcha-Id', 'X-Captcha-Code' } lấy từ VisualCaptcha.headers()
+        async login(usernameOrEmail, password, captchaHeaders) {
+            const res = await apiClient.post('/auth/login', { usernameOrEmail, password }, { headers: captchaHeaders });
+            return { token: res.data.token, refreshToken: res.data.refreshToken, user: Adapter.user(res.data.user) };
         },
-        async register(payload) {
-            const res = await apiClient.post('/auth/register', payload);
-            return res.data;
+        async register(payload, captchaHeaders) {
+            const res = await apiClient.post('/auth/register', payload, { headers: captchaHeaders });
+            return { token: res.data.token, refreshToken: res.data.refreshToken, user: Adapter.user(res.data.user) };
         },
-        forgotPassword: (emailOrUsername) => apiClient.post('/auth/forgot-password', { emailOrUsername }),
+        forgotPassword: (emailOrUsername, captchaHeaders) => apiClient.post('/auth/forgot-password', { emailOrUsername }, { headers: captchaHeaders }),
         resetPassword: (token, newPassword) => apiClient.post('/auth/reset-password', { token, newPassword }),
+        logout: (refreshToken) => apiClient.post('/auth/logout', { refreshToken }),
+        logoutAll: () => apiClient.post('/auth/logout-all'),
         async me() {
             const res = await apiClient.get('/auth/me');
             return Adapter.user(res.data);
@@ -369,7 +419,11 @@ const ApiService = {
         },
         async create(bookId, rating, title, comment) {
             return Adapter.review((await apiClient.post('/reviews', clean({ bookId: asNumber(bookId), rating, title, comment }))).data);
-        }
+        },
+        async update(id, bookId, rating, title, comment) {
+            return Adapter.review((await apiClient.put(`/reviews/${id}`, clean({ bookId: asNumber(bookId), rating, title, comment }))).data);
+        },
+        remove: (id) => apiClient.delete(`/reviews/${id}`)
     },
 
     wishlist: {
@@ -387,9 +441,13 @@ const ApiService = {
         async orders(params = {}) {
             return unwrapList(await apiClient.get('/admin/orders', { params: clean({ size: 15, ...params }) }), Adapter.order);
         },
+        async orderDetail(id) {
+            return Adapter.order((await apiClient.get(`/admin/orders/${id}`)).data);
+        },
         async updateOrderStatus(id, status) {
             return Adapter.order((await apiClient.put(`/admin/orders/${id}/status`, null, { params: { status } })).data);
         },
+        async markOrderRefunded(id) { return Adapter.order((await apiClient.put(`/admin/orders/${id}/refunded`)).data); },
         async users() { return ((await apiClient.get('/admin/users')).data || []).map(Adapter.user); },
         async updateUserRole(id, role) { return Adapter.user((await apiClient.put(`/admin/users/${id}/role`, { role })).data); },
         async updateUserStatus(id, status) { return Adapter.user((await apiClient.put(`/admin/users/${id}/status`, null, { params: { status } })).data); },
@@ -401,43 +459,55 @@ const ApiService = {
         async updateCoupon(id, body) { return Adapter.coupon((await apiClient.put(`/admin/coupons/${id}`, body)).data); },
         async qrSessions() { return ((await apiClient.get('/payments/qr/admin/sessions')).data || []).map(Adapter.session); },
         async bankTransactions() { return (await apiClient.get('/payments/qr/admin/bank-transactions')).data || []; },
+        paymentSettings: async () => (await apiClient.get('/payments/qr/admin/settings')).data,
+        savePaymentSettings: async (historyUrl) => (await apiClient.put('/payments/qr/admin/settings', { historyUrl })).data,
         syncBank: () => apiClient.post('/payments/qr/admin/sync'),
-        async revenueReport(params = {}) {
-            return (await apiClient.get('/admin/reports/revenue', { params: clean(params) })).data;
-        },
-        async downloadRevenueExcel(params = {}) {
-            const token = store.token;
-            const query = new URLSearchParams(clean(params)).toString();
-            const res = await fetch(`${API_BASE_URL}/admin/reports/revenue/excel${query ? '?' + query : ''}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+        confirmQrSession: (id) => apiClient.post(`/payments/qr/admin/sessions/${id}/confirm`),
+        rejectQrSession: (id) => apiClient.post(`/payments/qr/admin/sessions/${id}/reject`),
+        async revenueReport(params = {}) { return (await apiClient.get('/admin/reports/revenue', { params: clean(params) })).data; },
+        async downloadRevenueExcel(params = {}) { 
+            const query = new URLSearchParams(clean(params)).toString(); 
+            const url = '/admin/reports/revenue/excel' + (query ? '?' + query : '');
+            const blob = await apiClient.get(url, {
+                responseType: 'blob',
+                headers: { 'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/octet-stream, */*' }
             });
-            if (!res.ok) throw new Error('Không thể tải file báo cáo Excel');
-            const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
+            const fileBlob = blob instanceof Blob ? blob : new Blob([blob], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            const blobUrl = URL.createObjectURL(fileBlob);
             const a = document.createElement('a');
-            a.href = url;
+            a.style.display = 'none';
+            a.href = blobUrl;
             a.download = `bao-cao-doanh-thu-${new Date().toISOString().slice(0, 10)}.xlsx`;
             document.body.appendChild(a);
             a.click();
-            a.remove();
-            setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+            setTimeout(() => {
+                try { document.body.removeChild(a); } catch (e) {}
+                URL.revokeObjectURL(blobUrl);
+            }, 1000);
         },
-        async downloadRevenuePdf(params = {}) {
-            const token = store.token;
-            const query = new URLSearchParams(clean(params)).toString();
-            const res = await fetch(`${API_BASE_URL}/admin/reports/revenue/pdf${query ? '?' + query : ''}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+        async downloadRevenuePdf(params = {}) { 
+            const query = new URLSearchParams(clean(params)).toString(); 
+            const url = '/admin/reports/revenue/pdf' + (query ? '?' + query : '');
+            const blob = await apiClient.get(url, {
+                responseType: 'blob',
+                headers: { 'Accept': 'application/pdf, application/octet-stream, */*' }
             });
-            if (!res.ok) throw new Error('Không thể tải file báo cáo PDF');
-            const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
+            const fileBlob = blob instanceof Blob ? blob : new Blob([blob], {
+                type: 'application/pdf'
+            });
+            const blobUrl = URL.createObjectURL(fileBlob);
             const a = document.createElement('a');
-            a.href = url;
+            a.style.display = 'none';
+            a.href = blobUrl;
             a.download = `bao-cao-doanh-thu-${new Date().toISOString().slice(0, 10)}.pdf`;
             document.body.appendChild(a);
             a.click();
-            a.remove();
-            setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+            setTimeout(() => {
+                try { document.body.removeChild(a); } catch (e) {}
+                URL.revokeObjectURL(blobUrl);
+            }, 1000);
         }
     },
 

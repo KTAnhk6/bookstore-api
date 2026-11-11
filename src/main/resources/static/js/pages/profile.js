@@ -44,8 +44,8 @@ const profilePage = {
     draw(container) {
         const user = store.currentUser;
         const orders = this.orders;
-        const favoriteCategoryIds = store.getFavoriteCategories();
-        const favoriteCategories = store.getCategories().filter(c => favoriteCategoryIds.includes(c.id));
+        const favoriteCategoryIds = (store.getFavoriteCategories() || []).map(String);
+        const favoriteCategories = (store.getCategories() || []).filter(c => favoriteCategoryIds.includes(String(c.id)));
         const roleLabel = user.role === 'ADMIN' ? 'Quản Trị Viên' : user.role === 'STAFF' ? 'Nhân Viên' : 'Khách Hàng';
 
         container.innerHTML = `
@@ -82,6 +82,9 @@ const profilePage = {
                             </div>
                             <div class="profile-nav-item danger-item text-danger mt-3" onclick="store.logout(); appToast.info('Đã đăng xuất thành công!'); app.navigate('#/auth');">
                                 <i class="fa-solid fa-right-from-bracket"></i> Đăng Xuất
+                            </div>
+                            <div class="profile-nav-item danger-item text-danger" onclick="profilePage.logoutAllDevices()">
+                                <i class="fa-solid fa-laptop-medical"></i> Đăng Xuất Khỏi Tất Cả Thiết Bị
                             </div>
                         </nav>
                     </aside>
@@ -247,23 +250,19 @@ const profilePage = {
                                 <label class="form-label">Số điện thoại <span class="required-mark">*</span></label>
                                 <input type="tel" id="addr-phone" class="form-input" required>
                             </div>
-                            <div class="d-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
+                            <div class="d-grid" style="grid-template-columns: 1fr 1fr; gap: 0.75rem;">
                                 <div class="form-group">
-                                    <label class="form-label">Tỉnh / TP <span class="required-mark">*</span></label>
-                                    <input type="text" id="addr-province" class="form-input" required>
+                                    <label class="form-label">Tỉnh / Thành phố <span class="required-mark">*</span></label>
+                                    <select id="addr-province" class="form-select" required></select>
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Quận / Huyện <span class="required-mark">*</span></label>
-                                    <input type="text" id="addr-district" class="form-input" required>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Phường / Xã</label>
-                                    <input type="text" id="addr-ward" class="form-input">
+                                    <label class="form-label">Phường / Xã <span class="required-mark">*</span></label>
+                                    <select id="addr-ward" class="form-select" required></select>
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Số nhà, tên đường <span class="required-mark">*</span></label>
-                                <input type="text" id="addr-detail" class="form-input" required>
+                                <label class="form-label">Địa chỉ chi tiết <span class="required-mark">*</span></label>
+                                <input type="text" id="addr-detail" class="form-input" placeholder="Số nhà, tên đường, tổ/thôn..." required>
                             </div>
                             <div class="form-group">
                                 <label class="form-checkbox-label text-sm font-semibold">
@@ -305,11 +304,15 @@ const profilePage = {
     },
 
     renderOrderCard(order) {
-        const canCancel = order.orderStatus === 'PENDING' || order.orderStatus === 'CONFIRMED';
+        // Đơn đã thanh toán phải nhờ shop huỷ để còn hoàn tiền
+        const paid = order.paymentStatus === 'SUCCESS';
+        const canCancel = (order.orderStatus === 'PENDING' || order.orderStatus === 'CONFIRMED') && !paid;
+        const contactToCancel = (order.orderStatus === 'PENDING' || order.orderStatus === 'CONFIRMED') && paid;
         const awaitingQr = order.orderStatus === 'PENDING' && order.paymentMethod === 'QR_CODE' && order.paymentStatus === 'PENDING';
         const paidBadge = order.paymentStatus === 'SUCCESS'
             ? '<span class="badge badge-success ml-1">Đã thanh toán</span>'
-            : order.paymentStatus === 'REFUNDED' ? '<span class="badge badge-subtle ml-1">Đã hoàn tiền</span>' : '';
+            : order.paymentStatus === 'REFUNDED' ? '<span class="badge badge-subtle ml-1">Đã hoàn tiền</span>'
+            : order.paymentStatus === 'REFUND_PENDING' ? '<span class="badge badge-warning ml-1">Chờ hoàn tiền</span>' : '';
 
         return `
             <div class="order-card">
@@ -351,6 +354,7 @@ const profilePage = {
                         <div>Tổng tiền: <strong class="text-primary font-bold text-sm">${store.formatCurrency(order.totalAmount)}</strong></div>
                         ${awaitingQr ? '<a href="#/checkout" class="btn btn-xs btn-primary">Thanh Toán QR</a>' : ''}
                         ${canCancel ? `<button class="btn btn-xs btn-outline-danger" onclick="profilePage.openCancelOrder('${order.id}')">Huỷ Đơn</button>` : ''}
+                        ${contactToCancel ? '<span class="text-xs text-muted" title="Đơn đã thanh toán">Liên hệ shop để huỷ/hoàn tiền</span>' : ''}
                         <button class="btn btn-xs btn-outline-primary" onclick="profilePage.reorder('${order.id}')">Mua Lại</button>
                     </div>
                 </div>
@@ -361,6 +365,23 @@ const profilePage = {
     switchTab(tab) {
         this.activeTab = tab;
         this.draw(document.getElementById('main-view'));
+    },
+
+    logoutAllDevices() {
+        modalManager.confirm({
+            title: 'Đăng Xuất Khỏi Tất Cả Thiết Bị',
+            message: 'Mọi máy và trình duyệt đang đăng nhập tài khoản này (kể cả máy này) sẽ phải đăng nhập lại. Tiếp tục?',
+            confirmText: 'Đăng xuất tất cả',
+            onConfirm: async () => {
+                try {
+                    await store.logoutAll();
+                    appToast.info('Đã đăng xuất khỏi tất cả thiết bị.');
+                    app.navigate('#/auth');
+                } catch (err) {
+                    app.showError(err);
+                }
+            }
+        });
     },
 
     /* ------------------------------ Đơn hàng ------------------------------ */
@@ -408,7 +429,7 @@ const profilePage = {
 
     /* ------------------------------ Địa chỉ ------------------------------ */
 
-    openAddressModal(addrId = null) {
+    async openAddressModal(addrId = null) {
         const set = (id, value) => { document.getElementById(id).value = value; };
         const addr = addrId ? this.addresses.find(a => a.id === addrId) : null;
 
@@ -416,9 +437,8 @@ const profilePage = {
         set('addr-id', addr ? addr.id : '');
         set('addr-name', addr ? addr.recipientName : store.currentUser.name);
         set('addr-phone', addr ? addr.phone : store.currentUser.phone || '');
-        set('addr-province', addr ? addr.province : '');
-        set('addr-district', addr ? addr.district : '');
-        set('addr-ward', addr ? addr.ward || '' : '');
+        await addressPicker.attach('addr-province', 'addr-ward',
+            addr ? { province: addr.province, ward: addr.ward || '' } : {});
         set('addr-detail', addr ? addr.detailAddress : '');
         document.getElementById('addr-default').checked = addr ? !!addr.isDefault : this.addresses.length === 0;
         modalManager.open('address-modal');
@@ -428,9 +448,13 @@ const profilePage = {
         e.preventDefault();
         const val = (id) => document.getElementById(id).value.trim();
         const id = val('addr-id');
+        if (!val('addr-province') || !val('addr-ward')) {
+            appToast.error('Vui lòng chọn tỉnh/thành phố và phường/xã!', 'Thiếu Thông Tin');
+            return;
+        }
         const body = {
-            recipientName: val('addr-name'), phone: val('addr-phone'),
-            province: val('addr-province'), district: val('addr-district'),
+            recipientName: val('addr-name'), phone: val('addr-phone').replace(/[\s.\-]/g, ''),
+            province: val('addr-province'), district: '',
             ward: val('addr-ward'), detailAddress: val('addr-detail'),
             isDefault: document.getElementById('addr-default').checked
         };
@@ -481,7 +505,7 @@ const profilePage = {
     async handleSaveInfo(e) {
         e.preventDefault();
         const fullName = document.getElementById('info-name').value.trim();
-        const phone = document.getElementById('info-phone').value.trim();
+        const phone = document.getElementById('info-phone').value.replace(/[\s.\-]/g, '');
         try {
             const me = await ApiService.users.updateProfile({ fullName, phone });
             store.setUser(me);

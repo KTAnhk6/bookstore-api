@@ -30,56 +30,80 @@ public class RecommendationServiceImpl implements RecommendationService {
             return getTrendingRecommendations(limit);
         }
 
-        Set<Long> targetCategoryIds = new LinkedHashSet<>();
-
-        // 1. Get user favorite categories (priority #1)
-        List<Long> userFavCategoryIds = favoriteCategoryRepository.findCategoryIdsByUserId(userId);
-        if (userFavCategoryIds != null && !userFavCategoryIds.isEmpty()) {
-            targetCategoryIds.addAll(userFavCategoryIds);
-        }
-
-        // 2. Get past order categories (priority #2)
-        List<Long> orderCategoryIds = orderRepository.findPurchasedCategoryIdsByUserId(userId);
-        if (orderCategoryIds != null && !orderCategoryIds.isEmpty()) {
-            targetCategoryIds.addAll(orderCategoryIds);
-        }
-
         Map<Long, Book> recommendedBooksMap = new LinkedHashMap<>();
 
-        // Fetch top rated & popular books in preferred categories
-        if (!targetCategoryIds.isEmpty()) {
-            List<Book> categoryBooks = bookRepository.findByCategoriesIn(
-                    targetCategoryIds,
+        // 1. Get user favorite categories (PRIORITY #1 - Lọc chuẩn xác theo 5 sở thích người dùng chọn)
+        List<Long> userFavCategoryIds = favoriteCategoryRepository.findCategoryIdsByUserId(userId);
+        if (userFavCategoryIds != null && !userFavCategoryIds.isEmpty()) {
+            List<Book> favCategoryBooks = bookRepository.findByCategoriesIn(
+                    userFavCategoryIds,
                     Book.Status.AVAILABLE,
-                    PageRequest.of(0, limit * 2)
+                    PageRequest.of(0, Math.max(limit * 3, 50))
             ).getContent();
 
-            // Sort category books by combination of rating and sales
-            categoryBooks.stream()
+            // Sắp xếp sách theo gu sở thích: ưu tiên số lượng bán chạy và sách mới cập nhật trong các thể loại đã chọn
+            favCategoryBooks.stream()
                     .sorted((b1, b2) -> {
-                        double score1 = (b1.getSoldQuantity() != null ? b1.getSoldQuantity() : 0.0) * 10
-                                + (b1.getSoldQuantity() != null ? Math.min(b1.getSoldQuantity(), 100) : 0);
-                        double score2 = (b2.getSoldQuantity() != null ? b2.getSoldQuantity() : 0.0) * 10
-                                + (b2.getSoldQuantity() != null ? Math.min(b2.getSoldQuantity(), 100) : 0);
-                        return Double.compare(score2, score1);
+                        int sold1 = b1.getSoldQuantity() != null ? b1.getSoldQuantity() : 0;
+                        int sold2 = b2.getSoldQuantity() != null ? b2.getSoldQuantity() : 0;
+                        if (sold1 != sold2) {
+                            return Integer.compare(sold2, sold1);
+                        }
+                        if (b1.getCreatedAt() != null && b2.getCreatedAt() != null) {
+                            return b2.getCreatedAt().compareTo(b1.getCreatedAt());
+                        }
+                        return Long.compare(b2.getId(), b1.getId());
                     })
                     .forEach(b -> recommendedBooksMap.put(b.getId(), b));
         }
 
-        // 3. Add books by purchased authors
-        List<Long> authorIds = orderRepository.findPurchasedAuthorIdsByUserId(userId);
-        if (authorIds != null && !authorIds.isEmpty()) {
-            List<Book> authorBooks = bookRepository.findByAuthorIdsIn(
-                    authorIds,
-                    Book.Status.AVAILABLE,
-                    PageRequest.of(0, limit)
-            );
-            for (Book b : authorBooks) {
-                recommendedBooksMap.putIfAbsent(b.getId(), b);
+        // 2. Nếu chưa đủ sách hoặc người dùng chưa chọn sở thích, bổ sung từ thể loại trong các đơn đã mua (PRIORITY #2)
+        if (recommendedBooksMap.size() < limit) {
+            List<Long> orderCategoryIds = orderRepository.findPurchasedCategoryIdsByUserId(userId);
+            if (orderCategoryIds != null && !orderCategoryIds.isEmpty()) {
+                Set<Long> remainingOrderCatIds = new LinkedHashSet<>(orderCategoryIds);
+                if (userFavCategoryIds != null) {
+                    remainingOrderCatIds.removeAll(userFavCategoryIds);
+                }
+                if (!remainingOrderCatIds.isEmpty()) {
+                    List<Book> orderBooks = bookRepository.findByCategoriesIn(
+                            remainingOrderCatIds,
+                            Book.Status.AVAILABLE,
+                            PageRequest.of(0, limit * 2)
+                    ).getContent();
+
+                    orderBooks.stream()
+                            .sorted((b1, b2) -> {
+                                int sold1 = b1.getSoldQuantity() != null ? b1.getSoldQuantity() : 0;
+                                int sold2 = b2.getSoldQuantity() != null ? b2.getSoldQuantity() : 0;
+                                return Integer.compare(sold2, sold1);
+                            })
+                            .forEach(b -> {
+                                if (recommendedBooksMap.size() < limit) {
+                                    recommendedBooksMap.putIfAbsent(b.getId(), b);
+                                }
+                            });
+                }
             }
         }
 
-        // 4. If still less than limit, supplement with best sellers and featured books
+        // 3. Nếu vẫn chưa đủ sách, bổ sung theo tác giả đã từng mua
+        if (recommendedBooksMap.size() < limit) {
+            List<Long> authorIds = orderRepository.findPurchasedAuthorIdsByUserId(userId);
+            if (authorIds != null && !authorIds.isEmpty()) {
+                List<Book> authorBooks = bookRepository.findByAuthorIdsIn(
+                        authorIds,
+                        Book.Status.AVAILABLE,
+                        PageRequest.of(0, limit)
+                );
+                for (Book b : authorBooks) {
+                    recommendedBooksMap.putIfAbsent(b.getId(), b);
+                    if (recommendedBooksMap.size() >= limit) break;
+                }
+            }
+        }
+
+        // 4. Nếu vẫn còn trống (tài khoản mới hoàn toàn), bổ sung sách bán chạy & sách mới
         if (recommendedBooksMap.size() < limit) {
             List<Book> bestSellers = bookRepository.findTop10ByStatusOrderBySoldQuantityDesc(Book.Status.AVAILABLE);
             for (Book b : bestSellers) {

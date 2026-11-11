@@ -103,20 +103,16 @@ const checkoutPage = {
                                     </div>
                                     <div class="form-group">
                                         <label class="form-label">Tỉnh / Thành phố <span class="required-mark">*</span></label>
-                                        <input type="text" id="checkout-province" class="form-input" placeholder="TP. Hồ Chí Minh">
+                                        <select id="checkout-province" class="form-select"></select>
                                     </div>
                                     <div class="form-group">
-                                        <label class="form-label">Quận / Huyện <span class="required-mark">*</span></label>
-                                        <input type="text" id="checkout-district" class="form-input" placeholder="Quận 1">
+                                        <label class="form-label">Phường / Xã <span class="required-mark">*</span></label>
+                                        <select id="checkout-ward" class="form-select"></select>
                                     </div>
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">Phường / Xã</label>
-                                    <input type="text" id="checkout-ward" class="form-input" placeholder="Phường Bến Nghé">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label">Số nhà, tên đường <span class="required-mark">*</span></label>
-                                    <input type="text" id="checkout-detail" class="form-input" placeholder="123 Đường Tri Thức">
+                                    <label class="form-label">Địa chỉ chi tiết <span class="required-mark">*</span></label>
+                                    <input type="text" id="checkout-detail" class="form-input" placeholder="Số nhà, tên đường, tổ/thôn... Ví dụ: 123 Đường Tri Thức">
                                 </div>
                             </div>
 
@@ -188,6 +184,7 @@ const checkoutPage = {
                 </div>
             </div>
         `;
+        addressPicker.attach('checkout-province', 'checkout-ward');
     },
 
     breakdownHtml(subtotal, discount, shipping, total, couponCode) {
@@ -230,12 +227,16 @@ const checkoutPage = {
         }
 
         const fields = {
-            recipientName: val('checkout-name'), phone: val('checkout-phone'),
-            province: val('checkout-province'), district: val('checkout-district'),
+            recipientName: val('checkout-name'), phone: val('checkout-phone').replace(/[\s.\-]/g, ''),
+            province: val('checkout-province'), district: '',
             ward: val('checkout-ward'), detailAddress: val('checkout-detail')
         };
-        if (!fields.recipientName || fields.phone.length < 9 || !fields.province || !fields.district || !fields.detailAddress) {
-            appToast.error('Vui lòng điền họ tên, số điện thoại, tỉnh, quận và địa chỉ cụ thể!', 'Thiếu Thông Tin');
+        if (!fields.recipientName || !fields.phone || !fields.province || !fields.ward || !fields.detailAddress) {
+            appToast.error('Vui lòng điền họ tên, số điện thoại, tỉnh/thành, phường/xã và địa chỉ chi tiết!', 'Thiếu Thông Tin');
+            return null;
+        }
+        if (!/^(0|\+84)[0-9]{9}$/.test(fields.phone)) {
+            appToast.error('Số điện thoại không hợp lệ (10 số, bắt đầu bằng 0 hoặc +84)', 'Sai Số Điện Thoại');
             return null;
         }
         return { ...body, ...fields };
@@ -259,6 +260,7 @@ const checkoutPage = {
                 const order = await ApiService.orders.create({ ...body, paymentMethod: 'COD' });
                 await store.refreshCart();
                 if (typeof cartPage !== 'undefined') cartPage.appliedCoupon = null;
+                window.scrollTo({ top: 0, behavior: 'smooth' });
                 this.renderSuccess(order);
             }
         } catch (err) {
@@ -282,6 +284,10 @@ const checkoutPage = {
         } catch (err) {
             this.sessionOrder = null;
         }
+        if (session.status === 'CLAIMED') {
+            await this.finishSession();
+            return;
+        }
         this.drawSession();
         this.startTimer();
     },
@@ -292,7 +298,7 @@ const checkoutPage = {
         const container = document.getElementById('main-view');
 
         container.innerHTML = `
-            <div class="container py-8">
+            <div class="container py-8" id="qr-session-view">
                 <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-xl); padding: 2rem; max-width: 860px; margin: 0 auto; box-shadow: var(--shadow-xl);">
                     <div class="d-flex items-center justify-between mb-4 flex-wrap gap-2">
                         <h1 class="text-xl font-bold"><i class="fa-solid fa-qrcode text-primary mr-2"></i> Thanh Toán Đơn ${esc(s.orderCode)}</h1>
@@ -376,12 +382,13 @@ const checkoutPage = {
     },
 
     async refreshSession(useCheck) {
+        if (!document.getElementById('qr-session-view')) { this.stopTimer(); return; } // đã rời trang
         if (this.polling || !this.session) return;
         this.polling = true;
         try {
             const s = useCheck ? await ApiService.qr.check(this.session.sessionId) : await ApiService.qr.get(this.session.sessionId);
-            if (!document.getElementById('qr-countdown')) return;
-            if (s.status !== 'PENDING') {
+            if (!document.getElementById('qr-session-view')) return;
+            if (s.status !== this.session.status) {
                 this.session = s;
                 this.stopTimer();
                 await this.finishSession();
@@ -407,8 +414,14 @@ const checkoutPage = {
     async finishSession() {
         const s = this.session;
         await store.refreshCart().catch(() => {});
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         if (s.status === 'PAID') {
             this.renderSuccess(this.sessionOrder, s);
+            return;
+        }
+        if (s.status === 'CLAIMED') {
+            this.renderClaimed(s);
+            this.timer = setInterval(() => this.refreshSession(), 5000); // tiền về / admin duyệt -> tự chuyển trang
             return;
         }
         const expired = s.status === 'EXPIRED';
@@ -419,6 +432,31 @@ const checkoutPage = {
                     <h2 class="text-xl font-bold mb-2">${expired ? 'Phiên thanh toán đã hết hạn' : 'Đơn hàng đã được huỷ'}</h2>
                     <p class="text-muted text-sm mb-4">${esc(s.cancelReason || 'Bạn có thể chọn lại sách và đặt hàng mới.')}</p>
                     <a href="#/catalog" class="btn btn-primary">Tiếp Tục Mua Sắm</a>
+                </div>
+            </div>
+        `;
+    },
+
+    renderClaimed(s) {
+        document.getElementById('main-view').innerHTML = `
+            <div class="container py-12" id="qr-session-view">
+                <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-xl); padding: 3rem 2rem; max-width: 600px; margin: 0 auto; text-align: center;">
+                    <i class="fa-solid fa-hourglass-half text-primary mb-3" style="font-size: 3rem;"></i>
+                    <h2 class="text-xl font-bold mb-2">Đã ghi nhận, chờ cửa hàng xác nhận</h2>
+                    <p class="text-muted text-sm mb-4">
+                        Hệ thống chưa thấy giao dịch của đơn <strong>${esc(s.orderCode)}</strong>. Đơn hàng được giữ lại và sẽ tự xác nhận
+                        ngay khi tiền về tài khoản, hoặc khi cửa hàng kiểm tra và xác nhận đã nhận tiền.
+                    </p>
+                    <div class="p-4 rounded-lg mb-6 text-left text-sm" style="background: var(--bg-subtle);">
+                        <div class="d-flex justify-between py-1"><span>Số tiền:</span> <strong class="text-danger">${store.formatCurrency(s.amount)}</strong></div>
+                        <div class="d-flex justify-between py-1"><span>Nội dung chuyển khoản:</span> <strong class="text-primary">${esc(s.paymentCode)}</strong></div>
+                        <div class="d-flex justify-between py-1"><span>Tài khoản nhận:</span> <strong>${esc(s.accountNo)} - ${esc(s.bankName)}</strong></div>
+                    </div>
+                    <p class="text-xs text-muted mb-4"><i class="fa-solid fa-arrows-rotate fa-spin mr-1"></i> Trang tự cập nhật khi đơn được xác nhận.</p>
+                    <div class="d-flex items-center justify-center gap-3">
+                        <a href="#/profile?tab=orders" class="btn btn-primary"><i class="fa-solid fa-box-open mr-1"></i> Xem Đơn Hàng Của Tôi</a>
+                        <a href="#/" class="btn btn-ghost">Về Trang Chủ</a>
+                    </div>
                 </div>
             </div>
         `;
@@ -439,6 +477,9 @@ const checkoutPage = {
 
     renderSuccess(order, session) {
         const paid = !!session && session.status === 'PAID';
+        // shippingAddress do backend ghép sẵn dạng "Tên, SĐT - địa chỉ"
+        const [recipient, ...rest] = ((order && order.shippingAddress) || '').split(' - ');
+        const address = rest.length ? rest.join(' - ') : recipient;
         document.getElementById('main-view').innerHTML = `
             <div class="container py-12">
                 <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-xl); padding: 3.5rem 2rem; max-width: 680px; margin: 0 auto; text-align: center; box-shadow: var(--shadow-xl);">
@@ -450,8 +491,8 @@ const checkoutPage = {
 
                     ${order ? `
                     <div class="p-4 rounded-lg mb-6 text-left text-sm" style="background: var(--bg-subtle);">
-                        <div class="d-flex justify-between py-1"><span>Người nhận:</span> <strong>${esc(order.customerName)} (${esc(order.customerPhone)})</strong></div>
-                        <div class="d-flex justify-between py-1 gap-3"><span>Địa chỉ:</span> <strong style="text-align: right;">${esc(order.shippingAddress)}</strong></div>
+                        <div class="d-flex justify-between py-1"><span>Người nhận:</span> <strong>${esc(recipient)}</strong></div>
+                        <div class="d-flex justify-between py-1 gap-3"><span>Địa chỉ:</span> <strong style="text-align: right;">${esc(address)}</strong></div>
                         <div class="d-flex justify-between py-1"><span>Thanh toán:</span> <strong>${paid ? `Đã nhận ${store.formatCurrency(session.receivedAmount || session.amount)} qua VietQR` : 'Thanh toán khi nhận hàng (COD)'}</strong></div>
                         <div class="d-flex justify-between py-1"><span>Phí vận chuyển:</span> <strong>${order.shippingFee === 0 ? 'Miễn phí' : store.formatCurrency(order.shippingFee)}</strong></div>
                         <div class="d-flex justify-between py-1"><span>Tổng thanh toán:</span> <strong class="text-primary font-bold text-base">${store.formatCurrency(order.totalAmount)}</strong></div>
