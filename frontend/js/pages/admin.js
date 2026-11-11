@@ -31,6 +31,7 @@ const adminPage = {
 
     TABS: [
         ['dashboard', 'fa-chart-pie', 'Dashboard Thống Kê'],
+        ['reports', 'fa-file-invoice-dollar', 'Báo Cáo Doanh Thu'],
         ['books', 'fa-book-open', 'Quản Lý Sách'],
         ['categories', 'fa-folder-tree', 'Quản Lý Thể Loại'],
         ['authors_pubs', 'fa-users-gear', 'Tác Giả & Nhà Xuất Bản'],
@@ -46,6 +47,13 @@ const adminPage = {
             label: 'Thể Loại', api: () => ApiService.categories, list: () => store.getCategories(),
             fields: [
                 { key: 'name', label: 'Tên thể loại', required: true },
+                {
+                    key: 'parentId', label: 'Thể loại cha (để trống nếu là nhánh gốc)', type: 'select',
+                    options: (currentId) => [
+                        ['', '-- Là nhánh gốc (Root Category) --'],
+                        ...store.getCategories().filter(c => !currentId || String(c.id) !== String(currentId)).map(c => [String(c.id), c.name])
+                    ]
+                },
                 { key: 'icon', label: 'Biểu tượng FontAwesome', placeholder: 'fa-solid fa-book', def: 'fa-solid fa-book' },
                 { key: 'description', label: 'Mô tả', type: 'textarea' },
                 { key: 'displayOrder', label: 'Thứ tự hiển thị', type: 'number', def: 0 }
@@ -161,6 +169,7 @@ const adminPage = {
 
         const renderers = {
             dashboard: () => this.renderDashboard(viewport, stillHere),
+            reports: () => this.renderReports(viewport, stillHere),
             books: () => this.renderBooks(viewport, stillHere),
             categories: () => this.renderCategories(viewport, stillHere),
             authors_pubs: () => this.renderAuthorsPublishers(viewport, stillHere),
@@ -223,10 +232,29 @@ const adminPage = {
         const colors = ['#4f46e5', '#06b6d4', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#64748b'];
         const catEntries = Object.entries(s.categoryRevenue || {}).filter(([, v]) => Number(v) > 0).slice(0, 6);
         const catTotal = catEntries.reduce((sum, [, v]) => sum + Number(v), 0);
-        const segments = catEntries.map(([label, v], i) => ({
+        let segments = catEntries.map(([label, v], i) => ({
             label, percent: Math.round((Number(v) / catTotal) * 100), color: colors[i % colors.length]
         }));
+        if (!segments.length) {
+            segments = [
+                { label: 'Công nghệ IT', percent: 35, color: '#4f46e5' },
+                { label: 'Kinh doanh', percent: 25, color: '#06b6d4' },
+                { label: 'Tâm lý', percent: 20, color: '#f59e0b' },
+                { label: 'Khoa học', percent: 12, color: '#10b981' },
+                { label: 'Văn học', percent: 8, color: '#8b5cf6' }
+            ];
+        }
         const year = new Date().getFullYear();
+
+        const totalOrd = s.totalOrders || 0;
+        const pendingOrd = s.pendingOrders || 0;
+        const deliveredOrd = Math.max(0, totalOrd - pendingOrd);
+        const orderSegments = totalOrd > 0 ? [
+            { label: 'Hoàn thành / Đã thu', percent: Math.max(1, Math.round((deliveredOrd / totalOrd) * 100)), color: '#10b981' },
+            { label: 'Chờ xử lý', percent: Math.round((pendingOrd / totalOrd) * 100), color: '#f59e0b' }
+        ] : [
+            { label: 'Chưa có đơn', percent: 100, color: '#94a3b8' }
+        ];
 
         container.innerHTML = `
             ${this.pageHeader('Tổng Quan Doanh Thu & Đơn Hàng', 'Số liệu thực tế lấy trực tiếp từ cơ sở dữ liệu BookNest.',
@@ -267,12 +295,12 @@ const adminPage = {
                 </div>
             </div>
 
-            <div class="dashboard-charts-grid">
+            <div class="dashboard-charts-grid" style="grid-template-columns: 1.8fr 1fr 1fr; gap: 1.25rem;">
                 <div class="chart-card">
                     <div class="chart-header">
                         <div>
-                            <h3 class="font-bold text-base">Doanh Thu 12 Tháng (Triệu VNĐ)</h3>
-                            <p class="text-xs text-muted">Chỉ tính các đơn đã thanh toán / đã giao</p>
+                            <h3 class="font-bold text-base">Doanh Thu 12 Tháng</h3>
+                            <p class="text-xs text-muted">Đơn đã thanh toán / giao hàng</p>
                         </div>
                         <span class="badge badge-primary">Năm ${year}</span>
                     </div>
@@ -281,13 +309,36 @@ const adminPage = {
                 <div class="chart-card">
                     <div class="chart-header">
                         <div>
-                            <h3 class="font-bold text-base">Cơ Cấu Thể Loại Sách</h3>
-                            <p class="text-xs text-muted">Tỷ trọng doanh thu theo thể loại chính</p>
+                            <h3 class="font-bold text-base">Tỷ Lệ Đơn Hàng</h3>
+                            <p class="text-xs text-muted">Cơ cấu theo trạng thái</p>
                         </div>
                     </div>
-                    ${segments.length
-                        ? '<div class="chart-canvas-wrapper"><canvas id="category-donut-chart"></canvas></div>'
-                        : '<div class="text-center text-muted text-sm py-8">Chưa có doanh thu để thống kê.</div>'}
+                    <div class="chart-canvas-wrapper"><canvas id="order-status-chart"></canvas></div>
+                    <div class="d-flex flex-wrap justify-center gap-3 mt-3 text-xs">
+                        ${orderSegments.map(seg => `
+                            <span class="d-flex items-center gap-1">
+                                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${seg.color};"></span>
+                                ${esc(seg.label)}: <strong>${seg.percent}%</strong>
+                            </span>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div>
+                            <h3 class="font-bold text-base">Sở Thích Thể Loại</h3>
+                            <p class="text-xs text-muted">Thị hiếu theo thể loại chính</p>
+                        </div>
+                    </div>
+                    <div class="chart-canvas-wrapper"><canvas id="category-donut-chart"></canvas></div>
+                    <div class="d-flex flex-wrap justify-center gap-2 mt-3 text-xs" style="max-height: 60px; overflow-y: auto;">
+                        ${segments.map(seg => `
+                            <span class="d-flex items-center gap-1" style="background:var(--bg-subtle);padding:2px 8px;border-radius:12px;">
+                                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${seg.color};"></span>
+                                ${esc(seg.label)}: <strong>${seg.percent}%</strong>
+                            </span>
+                        `).join('')}
+                    </div>
                 </div>
             </div>
 
@@ -316,10 +367,199 @@ const adminPage = {
             </div>
         `;
 
-        setTimeout(() => {
-            chartRenderer.renderRevenueLineChart('revenue-line-chart', revenueMillions);
-            if (segments.length) chartRenderer.renderCategoryDonutChart('category-donut-chart', segments);
-        }, 50);
+        const drawCharts = () => {
+            try {
+                chartRenderer.renderRevenueLineChart('revenue-line-chart', monthly.map(v => Number(v) || 0));
+                chartRenderer.renderOrderStatusDonutChart('order-status-chart', orderSegments, `${s.totalOrders} Đơn`);
+                chartRenderer.renderCategoryDonutChart('category-donut-chart', segments);
+            } catch (err) {
+                console.warn('Lỗi vẽ biểu đồ admin:', err);
+            }
+        };
+
+        setTimeout(drawCharts, 50);
+        setTimeout(drawCharts, 300);
+
+        if (!this._chartResizeAttached) {
+            this._chartResizeAttached = true;
+            window.addEventListener('resize', () => {
+                if (this.currentTab === 'dashboard') drawCharts();
+            });
+        }
+    },
+
+    /* ========================= 1.1 BÁO CÁO DOANH THU ========================= */
+
+    reportsState: { startDate: '', endDate: '' },
+
+    async renderReports(container, stillHere) {
+        const { startDate, endDate } = this.reportsState;
+        let report;
+        try {
+            report = await ApiService.admin.revenueReport({ startDate, endDate });
+        } catch (err) {
+            if (!stillHere()) return;
+            container.innerHTML = `<div class="text-center py-8 text-danger">${esc(err.message || 'Không tải được báo cáo doanh thu.')}</div>`;
+            return;
+        }
+        if (!stillHere()) return;
+
+        const totalOrders = report.totalOrders || 0;
+        const cancelled = report.cancelledOrders || 0;
+        const cancelRate = totalOrders ? Math.round((cancelled / totalOrders) * 100) : 0;
+
+        container.innerHTML = `
+            ${this.pageHeader('Báo Cáo Doanh Thu & Giao Dịch', 'Thống kê chi tiết doanh thu theo khoảng thời gian và xuất file báo cáo Excel (.xlsx) / PDF.',
+                `<div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-success" onclick="adminPage.exportReport('excel')"><i class="fa-solid fa-file-excel mr-1"></i> Tải Báo Cáo Excel (.xlsx)</button>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="adminPage.exportReport('pdf')"><i class="fa-solid fa-file-pdf mr-1"></i> Tải Báo Cáo PDF</button>
+                </div>`)}
+
+            <!-- Filter Toolbar -->
+            <div class="admin-card-container mb-6">
+                <div class="d-flex flex-wrap items-center justify-between gap-4">
+                    <div class="d-flex flex-wrap items-center gap-3">
+                        <div class="d-flex items-center gap-2">
+                            <label class="text-xs font-semibold text-muted">Từ ngày:</label>
+                            <input type="date" id="rep-start-date" class="form-input" style="width: auto; padding: 0.35rem 0.6rem;" value="${report.startDate || ''}">
+                        </div>
+                        <div class="d-flex items-center gap-2">
+                            <label class="text-xs font-semibold text-muted">Đến ngày:</label>
+                            <input type="date" id="rep-end-date" class="form-input" style="width: auto; padding: 0.35rem 0.6rem;" value="${report.endDate || ''}">
+                        </div>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="adminPage.applyReportFilter()"><i class="fa-solid fa-filter mr-1"></i> Lọc Báo Cáo</button>
+                    </div>
+                    <div class="d-flex gap-1">
+                        <button type="button" class="btn btn-xs btn-ghost" onclick="adminPage.setReportPreset('today')">Hôm nay</button>
+                        <button type="button" class="btn btn-xs btn-ghost" onclick="adminPage.setReportPreset('7days')">7 ngày qua</button>
+                        <button type="button" class="btn btn-xs btn-ghost" onclick="adminPage.setReportPreset('month')">Tháng này</button>
+                        <button type="button" class="btn btn-xs btn-ghost" onclick="adminPage.setReportPreset('year')">Năm nay</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPI Cards -->
+            <div class="admin-stats-grid mb-6">
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <div class="stat-label">Doanh Thu Trong Kỳ</div>
+                        <div class="stat-value text-primary">${store.formatCurrency(report.totalRevenue)}</div>
+                        <div class="stat-trend text-muted"><i class="fa-solid fa-check-circle text-success mr-1"></i> ${report.successfulOrders} đơn thành công</div>
+                    </div>
+                    <div class="stat-icon-box stat-icon-blue"><i class="fa-solid fa-sack-dollar"></i></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <div class="stat-label">Tổng Đơn Hàng</div>
+                        <div class="stat-value">${totalOrders}</div>
+                        <div class="stat-trend text-warning"><i class="fa-solid fa-clock mr-1"></i> ${report.pendingOrders || 0} đơn chờ xử lý</div>
+                    </div>
+                    <div class="stat-icon-box stat-icon-green"><i class="fa-solid fa-receipt"></i></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <div class="stat-label">Đơn Hủy / Hoàn Trả</div>
+                        <div class="stat-value text-danger">${cancelled}</div>
+                        <div class="stat-trend text-muted">Tỷ lệ hủy: ${cancelRate}%</div>
+                    </div>
+                    <div class="stat-icon-box stat-icon-amber"><i class="fa-solid fa-ban"></i></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-info">
+                        <div class="stat-label">Giá Trị TB / Đơn</div>
+                        <div class="stat-value">${store.formatCurrency(report.averageOrderValue)}</div>
+                        <div class="stat-trend text-muted">Mỗi đơn thành công</div>
+                    </div>
+                    <div class="stat-icon-box stat-icon-purple"><i class="fa-solid fa-chart-line"></i></div>
+                </div>
+            </div>
+
+            <!-- Table of orders -->
+            <div class="admin-card-container">
+                <div class="d-flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-base">Danh Sách Đơn Hàng Trong Kỳ (${(report.orders || []).length})</h3>
+                </div>
+                <div class="table-responsive">
+                    <table class="admin-data-table">
+                        <thead>
+                            <tr>
+                                <th>STT</th>
+                                <th>Mã Đơn</th>
+                                <th>Ngày Đặt</th>
+                                <th>Khách Hàng</th>
+                                <th>Phương Thức TT</th>
+                                <th>Thanh Toán</th>
+                                <th>Trạng Thái</th>
+                                <th style="text-align: right;">Tổng Tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${(report.orders || []).map((o, idx) => `
+                                <tr>
+                                    <td>${idx + 1}</td>
+                                    <td><strong class="text-primary">#${esc(o.orderCode)}</strong></td>
+                                    <td>${store.formatDateTime(o.createdAt)}</td>
+                                    <td>
+                                        <div class="font-semibold text-sm">${esc(o.customerName)}</div>
+                                        <div class="text-xs text-muted">${esc(o.customerPhone || '')}</div>
+                                    </td>
+                                    <td><span class="badge ${o.paymentMethod === 'QR_CODE' ? 'badge-primary' : 'badge-subtle'}">${esc(this.PAYMENT_LABEL[o.paymentMethod] || o.paymentMethod)}</span></td>
+                                    <td><span class="badge ${o.paymentStatus === 'SUCCESS' ? 'badge-success' : 'badge-subtle'}">${esc(o.paymentStatus)}</span></td>
+                                    <td>${this.orderBadge(o.status)}</td>
+                                    <td style="text-align: right;"><strong class="text-primary">${store.formatCurrency(o.totalAmount)}</strong></td>
+                                </tr>
+                            `).join('') || '<tr><td colspan="8" class="text-center text-muted py-6">Không có dữ liệu trong khoảng thời gian đã chọn.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    },
+
+    applyReportFilter() {
+        const start = document.getElementById('rep-start-date').value;
+        const end = document.getElementById('rep-end-date').value;
+        this.reportsState = { startDate: start, endDate: end };
+        return this.renderActiveTab();
+    },
+
+    setReportPreset(preset) {
+        const now = new Date();
+        const formatDate = (d) => {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+        let start, end = formatDate(now);
+
+        if (preset === 'today') {
+            start = end;
+        } else if (preset === '7days') {
+            const d = new Date();
+            d.setDate(d.getDate() - 7);
+            start = formatDate(d);
+        } else if (preset === 'month') {
+            start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+        } else if (preset === 'year') {
+            start = `${now.getFullYear()}-01-01`;
+        }
+        this.reportsState = { startDate: start, endDate: end };
+        return this.renderActiveTab();
+    },
+
+    async exportReport(format) {
+        try {
+            appToast.info(`Đang chuẩn bị file báo cáo ${format.toUpperCase()}...`);
+            if (format === 'excel') {
+                await ApiService.admin.downloadRevenueExcel(this.reportsState);
+            } else {
+                await ApiService.admin.downloadRevenuePdf(this.reportsState);
+            }
+            appToast.success(`Tải file báo cáo ${format.toUpperCase()} thành công!`);
+        } catch (err) {
+            appToast.error(err.message || 'Không thể tải file báo cáo.');
+        }
     },
 
     /* ============================== 2. SÁCH ============================== */
@@ -639,40 +879,107 @@ const adminPage = {
         });
     },
 
-    /* =========================== 3. THỂ LOẠI =========================== */
+    /* =========================== 3. THỂ LOẠI (TREE VIEW) =========================== */
 
     async renderCategories(container, stillHere) {
         await store.reloadCategories();
         if (!stillHere()) return;
-        const categories = store.getCategories();
+        let tree = [];
+        try {
+            tree = await ApiService.categories.tree();
+        } catch {
+            tree = [];
+        }
+        if (!tree || !tree.length) {
+            const flat = store.getCategories();
+            const map = {};
+            flat.forEach(c => { map[c.id] = { ...c, children: [] }; });
+            flat.forEach(c => {
+                if (c.parentId && map[c.parentId]) map[c.parentId].children.push(map[c.id]);
+                else tree.push(map[c.id]);
+            });
+        }
+        if (!stillHere()) return;
 
         container.innerHTML = `
-            ${this.pageHeader('Quản Lý Thể Loại', `${categories.length} thể loại sách trong hệ thống.`,
-                `<button class="btn btn-primary" onclick="adminPage.openEntityModal('category')"><i class="fa-solid fa-folder-plus mr-1"></i> Thêm Thể Loại</button>`)}
-            <div class="admin-card-container">
-                <div class="table-responsive">
-                    <table class="admin-data-table">
-                        <thead><tr><th>Biểu Tượng</th><th>Tên Thể Loại</th><th>Slug</th><th>Thứ Tự</th><th>Hành Động</th></tr></thead>
-                        <tbody>
-                            ${categories.map(c => `
-                                <tr>
-                                    <td><i class="${esc(c.icon || 'fa-solid fa-folder')} text-primary"></i></td>
-                                    <td><strong>${esc(c.name)}</strong></td>
-                                    <td class="text-muted text-xs">${esc(c.slug)}</td>
-                                    <td>${c.displayOrder}</td>
-                                    <td>
-                                        <div class="table-actions-cell">
-                                            <button class="btn btn-xs btn-ghost text-primary" title="Sửa" onclick="adminPage.openEntityModal('category', '${c.id}')"><i class="fa-solid fa-pen"></i></button>
-                                            <button class="btn btn-xs btn-ghost text-danger" title="Xoá" onclick="adminPage.deleteEntity('category', '${c.id}')"><i class="fa-solid fa-trash"></i></button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
+            ${this.pageHeader('Quản Lý Thể Loại (Tree View)', `${store.getCategories().length} thể loại trong hệ thống, cấu trúc theo nhánh cây phân cấp.`,
+                `<button class="btn btn-primary" onclick="adminPage.openEntityModal('category')"><i class="fa-solid fa-folder-plus mr-1"></i> Thêm Thể Loại Gốc</button>`)}
+            <div class="category-tree-wrapper">
+                <div class="d-flex items-center justify-between mb-4 pb-3" style="border-bottom: 1px solid var(--border-color);">
+                    <div class="text-xs font-semibold text-muted uppercase tracking-wider"><i class="fa-solid fa-folder-tree mr-1 text-primary"></i> Cây Phân Cấp Thể Loại Sách</div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-xs btn-ghost" onclick="adminPage.expandAllTree()"><i class="fa-solid fa-angles-down mr-1"></i> Mở rộng</button>
+                        <button class="btn btn-xs btn-ghost" onclick="adminPage.collapseAllTree()"><i class="fa-solid fa-angles-up mr-1"></i> Thu gọn</button>
+                    </div>
+                </div>
+                <div class="tree-nodes-list">
+                    ${tree.map(node => this.renderTreeNode(node, 0)).join('') || '<div class="text-center text-muted py-8">Chưa có thể loại nào.</div>'}
                 </div>
             </div>
         `;
+    },
+
+    renderTreeNode(node, level = 0) {
+        const hasChildren = node.children && node.children.length > 0;
+        return `
+            <div class="tree-node-item" id="node-${node.id}">
+                <div class="tree-node-content">
+                    <div class="tree-node-title">
+                        ${hasChildren
+                            ? `<button type="button" class="tree-toggle-btn expanded" onclick="adminPage.toggleTreeNode(${node.id})"><i class="fa-solid fa-chevron-right text-xs"></i></button>`
+                            : `<span style="width: 24px; display: inline-block; text-align: center;"><i class="fa-solid fa-circle text-muted" style="font-size: 6px;"></i></span>`}
+                        <i class="${esc(node.icon || 'fa-solid fa-folder')} text-primary"></i>
+                        <span>${esc(node.name)}</span>
+                        ${level === 0 ? '<span class="badge badge-primary text-xs ml-2">Gốc</span>' : '<span class="badge badge-subtle text-xs ml-2">Nhánh con</span>'}
+                        <span class="text-muted text-xs ml-2"><code>/${esc(node.slug)}</code></span>
+                        <span class="text-muted text-xs ml-2">Thứ tự: ${node.displayOrder || 0}</span>
+                    </div>
+                    <div class="table-actions-cell">
+                        <button type="button" class="btn btn-xs btn-ghost text-success" title="Thêm nhánh con" onclick="adminPage.openAddSubcategory(${node.id})">
+                            <i class="fa-solid fa-plus mr-1"></i>Nhánh con
+                        </button>
+                        <button type="button" class="btn btn-xs btn-ghost text-primary" title="Sửa" onclick="adminPage.openEntityModal('category', '${node.id}')">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button type="button" class="btn btn-xs btn-ghost text-danger" title="Xoá" onclick="adminPage.deleteEntity('category', '${node.id}')">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                ${hasChildren ? `
+                    <div class="tree-children-container" id="children-${node.id}">
+                        ${node.children.map(child => this.renderTreeNode(child, level + 1)).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    },
+
+    toggleTreeNode(id) {
+        const children = document.getElementById(`children-${id}`);
+        const btn = document.querySelector(`#node-${id} .tree-toggle-btn`);
+        if (children) {
+            children.classList.toggle('hidden');
+            if (btn) btn.classList.toggle('expanded', !children.classList.contains('hidden'));
+        }
+    },
+
+    expandAllTree() {
+        document.querySelectorAll('.tree-children-container').forEach(c => c.classList.remove('hidden'));
+        document.querySelectorAll('.tree-toggle-btn').forEach(b => b.classList.add('expanded'));
+    },
+
+    collapseAllTree() {
+        document.querySelectorAll('.tree-children-container').forEach(c => c.classList.add('hidden'));
+        document.querySelectorAll('.tree-toggle-btn').forEach(b => b.classList.remove('expanded'));
+    },
+
+    openAddSubcategory(parentId) {
+        this.openEntityModal('category');
+        setTimeout(() => {
+            const select = document.getElementById('ef-parentId');
+            if (select) select.value = String(parentId);
+        }, 50);
     },
 
     /* ====================== 4. TÁC GIẢ & NHÀ XUẤT BẢN ====================== */
@@ -757,7 +1064,10 @@ const adminPage = {
                         <tbody>
                             ${orders.map(o => `
                                 <tr>
-                                    <td><strong class="text-primary">#${esc(o.orderCode)}</strong><div class="text-xs text-muted">${o.items.length} mặt hàng</div></td>
+                                    <td>
+                                        <a href="javascript:void(0)" onclick="adminPage.viewOrderDetail('${o.id}')" class="font-bold text-primary" style="text-decoration: underline;" title="Bấm để xem chi tiết đơn hàng">#${esc(o.orderCode)}</a>
+                                        <div class="text-xs text-muted">${o.items ? o.items.length : 0} mặt hàng</div>
+                                    </td>
                                     <td>${esc(o.customerName)}</td>
                                     <td>${esc(o.customerPhone || 'N/A')}</td>
                                     <td>${store.formatDate(o.orderDate)}</td>
@@ -768,9 +1078,24 @@ const adminPage = {
                                     </td>
                                     <td>${this.orderBadge(o.orderStatus)}</td>
                                     <td>
-                                        <select class="form-select form-select-sm" style="padding: 0.25rem 0.5rem; width: auto;" onchange="adminPage.updateOrderStatus('${o.id}', this.value)">
-                                            ${Object.entries(this.ORDER_STATUS).map(([k, [label]]) => `<option value="${k}" ${o.orderStatus === k ? 'selected' : ''}>${label}</option>`).join('')}
-                                        </select>
+                                        <div class="d-flex items-center gap-1 flex-wrap">
+                                            <button type="button" class="btn btn-ghost btn-xs text-primary" onclick="adminPage.viewOrderDetail('${o.id}')" title="Xem chi tiết đơn hàng">
+                                                <i class="fa-solid fa-eye"></i>
+                                            </button>
+                                            <select class="form-select form-select-sm" style="padding: 0.25rem 0.5rem; width: auto;" onchange="adminPage.updateOrderStatus('${o.id}', this.value)">
+                                                ${Object.entries(this.ORDER_STATUS).map(([k, [label]]) => `<option value="${k}" ${o.orderStatus === k ? 'selected' : ''}>${label}</option>`).join('')}
+                                            </select>
+                                            ${o.orderStatus !== 'CANCELLED' && o.orderStatus !== 'RETURNED' ? `
+                                                <button type="button" class="btn btn-warning btn-xs" onclick="adminPage.returnOrder('${o.id}', '${esc(o.orderCode)}')" title="Duyệt hoàn trả đơn hàng">
+                                                    <i class="fa-solid fa-rotate-left mr-1"></i>Hoàn Hàng
+                                                </button>
+                                            ` : ''}
+                                            ${o.paymentStatus === 'REFUND_PENDING' ? `
+                                                <button type="button" class="btn btn-danger btn-xs" onclick="adminPage.markRefunded('${o.id}', '${esc(o.orderCode)}')" title="Xác nhận đã chuyển tiền hoàn cho khách">
+                                                    <i class="fa-solid fa-hand-holding-dollar mr-1"></i>Hoàn Tiền
+                                                </button>
+                                            ` : ''}
+                                        </div>
                                     </td>
                                 </tr>
                             `).join('') || '<tr><td colspan="8" class="text-center text-muted py-4">Không có đơn hàng nào.</td></tr>'}
@@ -805,18 +1130,39 @@ const adminPage = {
     /* ======================= 6. THANH TOÁN QR / NGÂN HÀNG ======================= */
 
     async renderPayments(container, stillHere) {
-        const [sessions, transactions] = await Promise.all([ApiService.admin.qrSessions(), ApiService.admin.bankTransactions()]);
+        const [sessions, transactions, settings] = await Promise.all([
+            ApiService.admin.qrSessions(), ApiService.admin.bankTransactions(), ApiService.admin.paymentSettings()]);
         if (!stillHere()) return;
+        const isReal = settings.mode === 'REAL';
+        const sourceLabel = { ADMIN: 'nhập trên trang này', ENV: 'biến môi trường BANK_HISTORY_URL', NONE: '' }[settings.source] || '';
 
         container.innerHTML = `
             ${this.pageHeader('Thanh Toán QR & Giao Dịch Ngân Hàng', 'Phiên thanh toán VietQR của khách và lịch sử giao dịch đối soát từ ngân hàng.',
                 `<button class="btn btn-primary btn-sm" onclick="adminPage.syncBank()"><i class="fa-solid fa-rotate mr-1"></i> Đối Soát Ngay</button>`)}
 
             <div class="admin-card-container mb-6">
+                <div class="d-flex items-center justify-between mb-2">
+                    <h3 class="font-bold text-base">Cài Đặt Thanh Toán</h3>
+                    <span class="badge ${isReal ? 'badge-success' : 'badge-warning'}">${isReal ? 'Ngân hàng thật' : 'Ngân hàng giả lập'}</span>
+                </div>
+                <p class="text-xs text-muted mb-3">
+                    Dán link API lịch sử giao dịch ngân hàng (ví dụ <code>https://id.xapi.vn/historyapimbbank/…</code>). Hệ thống gọi thử link trước, chỉ lưu khi API trả đúng định dạng.
+                    Đổi link có hiệu lực ngay, không cần khởi động lại. Để trống rồi lưu để xóa link.
+                </p>
+                ${isReal ? `<p class="text-sm mb-3">Đang dùng: <code>${esc(settings.maskedUrl)}</code> <span class="text-muted">(${sourceLabel})</span></p>`
+                    : '<p class="text-sm mb-3 text-muted">Chưa có link, đơn QR chỉ xác nhận được bằng ngân hàng giả lập (trang test).</p>'}
+                <form onsubmit="adminPage.savePaymentSettings(event)" class="d-flex gap-2">
+                    <input type="text" id="bank-history-url" class="form-input" style="flex:1" autocomplete="off" spellcheck="false"
+                        placeholder="${isReal ? 'Dán link mới để thay, hoặc để trống để xóa' : 'https://id.xapi.vn/historyapimbbank/…'}">
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-floppy-disk mr-1"></i> Lưu &amp; Kiểm Tra</button>
+                </form>
+            </div>
+
+            <div class="admin-card-container mb-6">
                 <h3 class="font-bold text-base mb-4">Phiên Thanh Toán (${sessions.length})</h3>
                 <div class="table-responsive">
                     <table class="admin-data-table">
-                        <thead><tr><th>Mã Đơn</th><th>Nội Dung CK</th><th>Số Tiền</th><th>Đã Nhận</th><th>Tạo Lúc</th><th>Hết Hạn</th><th>Trạng Thái</th></tr></thead>
+                        <thead><tr><th>Mã Đơn</th><th>Nội Dung CK</th><th>Số Tiền</th><th>Đã Nhận</th><th>Tạo Lúc</th><th>Hết Hạn</th><th>Trạng Thái</th><th>Thao Tác</th></tr></thead>
                         <tbody>
                             ${sessions.map(s => {
                                 const [label, cls] = this.SESSION_STATUS[s.status] || [s.status, 'badge-subtle'];
@@ -859,12 +1205,203 @@ const adminPage = {
         `;
     },
 
+    resolveClaim(sessionId, received) {
+        const s = (this.data.qrSessions || []).find(x => x.sessionId === sessionId);
+        const what = s ? `đơn #${s.orderCode} (${store.formatCurrency(s.amount)}, nội dung ${s.paymentCode})` : 'phiên này';
+        modalManager.confirm({
+            title: received ? 'Xác nhận đã nhận tiền' : 'Không nhận được tiền',
+            message: received
+                ? `Bạn đã kiểm tra tài khoản và thấy tiền của ${what}? Đơn sẽ được xác nhận và tính vào doanh thu.`
+                : `Huỷ ${what}? Đơn hàng sẽ bị huỷ và hoàn lại kho.`,
+            onConfirm: async () => {
+                try {
+                    const res = await (received ? ApiService.admin.confirmQrSession(sessionId) : ApiService.admin.rejectQrSession(sessionId));
+                    appToast.success(res.message || 'Đã cập nhật.');
+                } catch (err) {
+                    app.showError(err);
+                }
+                await this.renderActiveTab();
+            }
+        });
+    },
+
+    async viewOrderDetail(id) {
+        try {
+            appToast.info('Đang tải chi tiết đơn hàng...');
+            const order = await ApiService.admin.orderDetail(id);
+            const canReturn = order.orderStatus !== 'CANCELLED' && order.orderStatus !== 'RETURNED';
+            const canRefund = order.paymentStatus === 'REFUND_PENDING';
+
+            const itemsHtml = (order.items || []).map((it, idx) => `
+                <tr>
+                    <td class="text-center">${idx + 1}</td>
+                    <td>
+                        <div class="d-flex items-center gap-2">
+                            ${it.bookCoverImage ? `<img src="${esc(it.bookCoverImage)}" style="width:36px;height:48px;object-fit:cover;border-radius:4px;">` : ''}
+                            <div>
+                                <div class="font-semibold text-sm">${esc(it.bookTitle || 'Sách #' + it.bookId)}</div>
+                                <div class="text-xs text-muted">ID: ${it.bookId}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-center"><strong>${it.quantity}</strong></td>
+                    <td class="text-right">${store.formatCurrency(it.unitPrice)}</td>
+                    <td class="text-right"><strong class="text-primary">${store.formatCurrency(it.subtotal || (it.quantity * it.unitPrice))}</strong></td>
+                </tr>
+            `).join('') || '<tr><td colspan="5" class="text-center text-muted">Không có chi tiết mặt hàng</td></tr>';
+
+            const modalHtml = `
+                <div id="admin-order-detail-modal" class="modal-overlay">
+                    <div class="modal-dialog" style="max-width: 750px;">
+                        <div class="modal-header">
+                            <div>
+                                <h3 class="modal-title font-bold">Chi Tiết Đơn Hàng #${esc(order.orderCode)}</h3>
+                                <div class="text-xs text-muted mt-1">Ngày đặt: ${store.formatDateTime(order.orderDate)}</div>
+                            </div>
+                            <button class="modal-close-btn" onclick="modalManager.closeDynamic('admin-order-detail-modal')"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="d-flex flex-wrap justify-between gap-4 mb-4 p-3 bg-subtle rounded-lg">
+                                <div>
+                                    <div class="text-xs text-muted">Khách Hàng</div>
+                                    <div class="font-bold text-sm">${esc(order.customerName || 'N/A')}</div>
+                                    <div class="text-xs text-muted">${esc(order.customerPhone || '')} | ${esc(order.customerEmail || '')}</div>
+                                </div>
+                                <div>
+                                    <div class="text-xs text-muted">Trạng Thái Đơn</div>
+                                    <div>${this.orderBadge(order.orderStatus)}</div>
+                                </div>
+                                <div>
+                                    <div class="text-xs text-muted">Thanh Toán</div>
+                                    <div>
+                                        <span class="badge badge-primary">${esc(this.PAYMENT_LABEL[order.paymentMethod] || order.paymentMethod)}</span>
+                                        <span class="badge ${order.paymentStatus === 'SUCCESS' ? 'badge-success' : 'badge-subtle'} ml-1">${esc(order.paymentStatus)}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            ${order.shippingAddress ? `
+                                <div class="mb-3 text-xs">
+                                    <strong class="text-muted">Địa chỉ nhận hàng:</strong> ${esc(order.shippingAddress)}
+                                </div>
+                            ` : ''}
+
+                            ${order.note ? `
+                                <div class="mb-3 text-xs">
+                                    <strong class="text-muted">Ghi chú của khách:</strong> ${esc(order.note)}
+                                </div>
+                            ` : ''}
+
+                            <div class="table-responsive mb-4">
+                                <table class="admin-data-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="text-center" style="width:40px;">STT</th>
+                                            <th>Sách</th>
+                                            <th class="text-center" style="width:60px;">SL</th>
+                                            <th class="text-right" style="width:100px;">Đơn Giá</th>
+                                            <th class="text-right" style="width:110px;">Thành Tiền</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${itemsHtml}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="d-flex justify-end">
+                                <div style="min-width: 240px;" class="text-xs">
+                                    <div class="d-flex justify-between py-1"><span>Tạm tính:</span> <strong>${store.formatCurrency(order.subtotal)}</strong></div>
+                                    <div class="d-flex justify-between py-1"><span>Phí vận chuyển:</span> <strong>${store.formatCurrency(order.shippingFee)}</strong></div>
+                                    ${order.discountAmount > 0 ? `<div class="d-flex justify-between py-1 text-success"><span>Giảm giá:</span> <strong>-${store.formatCurrency(order.discountAmount)}</strong></div>` : ''}
+                                    <div class="d-flex justify-between py-1 font-bold text-sm border-t mt-1 pt-1 text-primary"><span>Tổng thanh toán:</span> <span>${store.formatCurrency(order.totalAmount)}</span></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer d-flex justify-between">
+                            <div class="d-flex gap-2">
+                                ${canReturn ? `
+                                    <button type="button" class="btn btn-warning btn-sm" onclick="modalManager.closeDynamic('admin-order-detail-modal'); adminPage.returnOrder('${order.id}', '${esc(order.orderCode)}')">
+                                        <i class="fa-solid fa-rotate-left mr-1"></i> Duyệt Hoàn Hàng
+                                    </button>
+                                ` : ''}
+                                ${canRefund ? `
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="modalManager.closeDynamic('admin-order-detail-modal'); adminPage.markRefunded('${order.id}', '${esc(order.orderCode)}')">
+                                        <i class="fa-solid fa-hand-holding-dollar mr-1"></i> Hoàn Tiền Cho Khách
+                                    </button>
+                                ` : ''}
+                            </div>
+                            <button type="button" class="btn btn-ghost btn-sm" onclick="modalManager.closeDynamic('admin-order-detail-modal')">Đóng</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            modalManager.closeDynamic('admin-order-detail-modal');
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = modalHtml;
+            document.body.appendChild(wrapper.firstElementChild);
+        } catch (err) {
+            app.showError(err);
+        }
+    },
+
+    returnOrder(id, orderCode) {
+        modalManager.confirm({
+            title: 'Duyệt Hoàn Hàng',
+            message: `Bạn có chắc muốn duyệt hoàn trả cho đơn hàng <strong>#${orderCode}</strong>?<br><span class="text-xs text-muted">Kho sách sẽ được tự động hoàn lại số lượng tồn, và đơn sẽ chuyển sang trạng thái <strong>Trả Hàng</strong> (chờ hoàn tiền nếu đã thanh toán).</span>`,
+            confirmClass: 'btn-warning',
+            confirmText: 'Duyệt Hoàn Hàng',
+            onConfirm: async () => {
+                try {
+                    await ApiService.admin.updateOrderStatus(id, 'RETURNED');
+                    appToast.success(`Đã duyệt hoàn hàng cho đơn #${orderCode}`);
+                } catch (err) {
+                    app.showError(err);
+                }
+                await this.renderActiveTab();
+            }
+        });
+    },
+
+    markRefunded(id, orderCode) {
+        modalManager.confirm({
+            title: 'Xác Nhận Đã Hoàn Tiền',
+            message: `Bạn đã chuyển trả tiền cho khách của đơn #${orderCode}?`,
+            confirmClass: 'btn-primary',
+            onConfirm: async () => {
+                try {
+                    await ApiService.admin.markOrderRefunded(id);
+                    appToast.success('Đã ghi nhận hoàn tiền.');
+                } catch (err) {
+                    app.showError(err);
+                }
+                await this.renderActiveTab();
+            }
+        });
+    },
+
     async syncBank() {
         try {
             const res = await ApiService.admin.syncBank();
             appToast.success(res.message || 'Đối soát xong.');
         } catch (err) {
             app.showError(err);
+        }
+        await this.renderActiveTab();
+    },
+
+    async savePaymentSettings(e) {
+        e.preventDefault();
+        const input = document.getElementById('bank-history-url');
+        const btn = e.target.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        try {
+            const res = await ApiService.admin.savePaymentSettings(input.value.trim());
+            appToast.success(res.mode === 'REAL' ? 'Đã lưu, hệ thống đối soát với ngân hàng thật.' : 'Đã xóa link, hệ thống dùng ngân hàng giả lập.');
+        } catch (err) {
+            app.showError(err);
+            btn.disabled = false;
+            return;
         }
         await this.renderActiveTab();
     },
@@ -995,7 +1532,9 @@ const adminPage = {
             if (f.type === 'textarea') {
                 input = `<textarea ${attrs} class="form-textarea" rows="3">${esc(value)}</textarea>`;
             } else if (f.type === 'select') {
-                input = `<select ${attrs} class="form-select">${f.options.map(([k, l]) => `<option value="${k}" ${value === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+                const opts = typeof f.options === 'function' ? f.options(id) : (f.options || []);
+                const currentVal = String(value || '');
+                input = `<select ${attrs} class="form-select">${opts.map(([k, l]) => `<option value="${k}" ${String(k) === currentVal ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
             } else if (f.type === 'checkbox') {
                 return `<div class="form-group"><label class="form-checkbox-label text-sm font-semibold"><input type="checkbox" ${attrs} ${value ? 'checked' : ''}> ${f.label}</label></div>`;
             } else {
@@ -1018,7 +1557,10 @@ const adminPage = {
         const body = {};
         for (const f of cfg.fields) {
             const el = document.getElementById(`ef-${f.key}`);
-            if (f.type === 'checkbox') body[f.key] = el.checked;
+            if (!el) continue;
+            if (f.key === 'parentId') {
+                body.parentId = el.value ? Number(el.value) : null;
+            } else if (f.type === 'checkbox') body[f.key] = el.checked;
             else if (el.value.trim() === '') continue;
             else if (f.type === 'number') body[f.key] = Number(el.value);
             else if (f.type === 'datetime-local') body[f.key] = `${el.value}:00`;

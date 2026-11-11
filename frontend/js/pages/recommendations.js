@@ -18,8 +18,8 @@ const recommendationsPage = {
         }
         if (!stillHere()) return;
 
-        const favoriteCategoryIds = store.getFavoriteCategories();
-        const favoriteCategories = store.getCategories().filter(c => favoriteCategoryIds.includes(c.id));
+        const favoriteCategoryIds = (store.getFavoriteCategories() || []).map(String);
+        const favoriteCategories = (store.getCategories() || []).filter(c => favoriteCategoryIds.includes(String(c.id)));
 
         container.innerHTML = `
             <div class="container py-4">

@@ -23,6 +23,10 @@ public class Category {
     @Column(nullable = false, unique = true, length = 120)
     private String slug;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private Category parent;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 

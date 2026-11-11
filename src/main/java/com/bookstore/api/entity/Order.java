@@ -118,6 +118,7 @@ public class Order {
         PENDING,
         SUCCESS,
         FAILED,
+        REFUND_PENDING,
         REFUNDED
     }
 }

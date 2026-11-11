@@ -99,25 +99,6 @@ const homePage = {
                 </div>
             </section>` : ''}
 
-            <!-- Quick Browse Categories -->
-            <section class="category-quick-section mb-8">
-                <div class="container">
-                    <div class="section-header">
-                        <div class="section-title-wrap">
-                            <h2><span class="section-icon-badge"><i class="fa-solid fa-layer-group"></i></span> Danh Mục Sách Nổi Bật</h2>
-                            <p>Chọn ngay chủ đề yêu thích để khám phá kho tàng tri thức</p>
-                        </div>
-                    </div>
-                    <div class="category-pills-row">
-                        ${categories.map(c => `
-                            <div class="category-pill-card" onclick="app.navigate('#/catalog?category=${c.id}')">
-                                <span class="cat-icon text-primary"><i class="${esc(c.icon || 'fa-solid fa-book')}"></i></span>
-                                <span class="font-bold text-sm">${esc(c.name)}</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            </section>
 
             <!-- Sách đề xuất dành riêng cho bạn -->
             <section class="recommendations-home-section mb-8">
@@ -220,8 +201,10 @@ const homePage = {
                     </div>
                 </div>
                 <div class="hero-slide-image">
-                    <div class="hero-book-stack">
-                        <img src="${esc(b.coverImage)}" alt="${esc(b.title)}" onerror="this.onerror=null; this.src=app.getBookPlaceholder(this.alt, '');">
+                    <div class="hero-book-stack" style="cursor: pointer;" onclick="app.navigate('#/book/${b.id}')">
+                        <a href="#/book/${b.id}">
+                            <img src="${esc(b.coverImage)}" alt="${esc(b.title)}" onerror="this.onerror=null; this.src=app.getBookPlaceholder(this.alt, '');">
+                        </a>
                     </div>
                 </div>
             </div>`;
@@ -233,19 +216,21 @@ const homePage = {
 
         return `
             <div class="book-card" data-book-id="${book.id}">
-                <div class="book-card-cover-wrap">
-                    <img src="${esc(book.coverImage)}" alt="${esc(book.title)}" class="book-card-cover" loading="lazy" onerror="this.onerror=null; this.src=app.getBookPlaceholder(this.alt, '');">
+                <div class="book-card-cover-wrap" onclick="if(!event.target.closest('button')) app.navigate('#/book/${book.id}')">
+                    <a href="#/book/${book.id}" class="book-card-cover-link" title="${esc(book.title)}">
+                        <img src="${esc(book.coverImage)}" alt="${esc(book.title)}" class="book-card-cover" loading="lazy" onerror="this.onerror=null; this.src=app.getBookPlaceholder(this.alt, '');">
+                    </a>
 
                     ${book.discountPercent ? `<span class="discount-tag">-${book.discountPercent}%</span>` : ''}
                     ${rankBadge}
 
                     <button class="wishlist-toggle-btn ${isFav ? 'favorited' : ''}"
                             title="${isFav ? 'Bỏ thích' : 'Yêu thích'}"
-                            onclick="app.toggleWishlist('${book.id}', this)">
+                            onclick="event.stopPropagation(); app.toggleWishlist('${book.id}', this)">
                         <i class="${isFav ? 'fa-solid' : 'fa-regular'} fa-heart"></i>
                     </button>
 
-                    <button class="quick-view-overlay-btn" onclick="modalManager.openQuickView('${book.id}')">
+                    <button class="quick-view-overlay-btn" onclick="event.stopPropagation(); modalManager.openQuickView('${book.id}')">
                         <i class="fa-solid fa-eye mr-1"></i> Xem Nhanh
                     </button>
                 </div>

@@ -26,6 +26,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Optional<Order> findByOrderCode(String orderCode);
 
+    boolean existsByUserIdAndStatusNot(Long userId, Order.OrderStatus status);
+
+    boolean existsByUserIdAndCouponIdAndStatusNot(Long userId, Long couponId, Order.OrderStatus status);
+
+    List<Order> findByCreatedAtBetweenOrderByCreatedAtDesc(java.time.LocalDateTime start, java.time.LocalDateTime end);
+
     @Query("SELECT DISTINCT ba.author.id FROM OrderItem oi JOIN oi.book b JOIN b.authors ba WHERE oi.order.user.id = :userId")
     List<Long> findPurchasedAuthorIdsByUserId(@Param("userId") Long userId);
 

@@ -13,6 +13,8 @@ import com.bookstore.api.repository.AuthorRepository;
 import com.bookstore.api.repository.BookRepository;
 import com.bookstore.api.repository.CategoryRepository;
 import com.bookstore.api.repository.PublisherRepository;
+import com.bookstore.api.repository.OrderItemRepository;
+import com.bookstore.api.repository.WishlistRepository;
 import com.bookstore.api.service.BookService;
 
 import com.bookstore.api.entity.SearchHistory;
@@ -55,6 +57,8 @@ public class BookServiceImpl implements BookService {
     private final UserRepository userRepository;
 
     private final CategoryRepository categoryRepository;
+    private final OrderItemRepository orderItemRepository;
+    private final WishlistRepository wishlistRepository;
     private final com.bookstore.api.service.BookRatingEnricher ratingEnricher;
 
     @Override
@@ -150,9 +154,9 @@ public class BookServiceImpl implements BookService {
                 if (query.getResultType() != Long.class && sortBy != null) {
                     Expression<BigDecimal> effectivePrice = cb.coalesce(root.<BigDecimal>get("salePrice"), root.<BigDecimal>get("price"));
                     switch (sortBy.toLowerCase()) {
-                        case "price_asc", "price-asc" -> query.orderBy(cb.asc(effectivePrice));
-                        case "price_desc", "price-desc" -> query.orderBy(cb.desc(effectivePrice));
-                        case "rating", "rating_desc" -> query.orderBy(cb.desc(cb.coalesce(avgRating, 0.0)), cb.desc(root.get("soldQuantity")));
+                        case "price_asc", "price-asc" -> query.orderBy(cb.asc(effectivePrice), cb.desc(root.get("id")));
+                        case "price_desc", "price-desc" -> query.orderBy(cb.desc(effectivePrice), cb.desc(root.get("id")));
+                        case "rating", "rating_desc" -> query.orderBy(cb.desc(cb.coalesce(avgRating, 0.0)), cb.desc(root.get("soldQuantity")), cb.desc(root.get("id")));
                         default -> { }
                     }
                 }
@@ -172,14 +176,14 @@ public class BookServiceImpl implements BookService {
 
     private Sort buildSort(String sortBy) {
         if (sortBy == null) {
-            return Sort.by(Sort.Direction.DESC, "createdAt");
+            return Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"));
         }
         return switch (sortBy.toLowerCase()) {
             case "price_asc", "price-asc", "price_desc", "price-desc", "rating", "rating_desc" -> Sort.unsorted(); // sắp xếp trong Specification
 
-            case "sales_desc", "sales", "popular" -> Sort.by(Sort.Direction.DESC, "soldQuantity");
-            case "title_asc", "title" -> Sort.by(Sort.Direction.ASC, "title");
-            default -> Sort.by(Sort.Direction.DESC, "createdAt");
+            case "sales_desc", "sales", "popular" -> Sort.by(Sort.Direction.DESC, "soldQuantity").and(Sort.by(Sort.Direction.DESC, "id"));
+            case "title_asc", "title" -> Sort.by(Sort.Direction.ASC, "title").and(Sort.by(Sort.Direction.DESC, "id"));
+            default -> Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"));
         };
     }
 
@@ -421,6 +425,10 @@ public class BookServiceImpl implements BookService {
 
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Book", "id", id));
+        if (orderItemRepository.existsByBookId(id)) {
+            throw new BadRequestException("Sách đã có trong đơn hàng nên không thể xoá. Hãy chuyển trạng thái sang \"Ngừng kinh doanh\".");
+        }
+        wishlistRepository.deleteByBookId(id);
         bookRepository.delete(book);
     }
 

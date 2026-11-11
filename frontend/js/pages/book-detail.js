@@ -5,9 +5,13 @@
 
 const bookDetailPage = {
     selectedRating: 5,
+    editingReviewId: null,
+    reviews: [],
 
     async render(container, bookId) {
         const stillHere = app.routeChecker();
+        this.editingReviewId = null;
+        this.selectedRating = 5;
         container.innerHTML = '<div class="container py-12 text-center"><div class="spinner-ring"></div></div>';
 
         try {
@@ -19,6 +23,7 @@ const bookDetailPage = {
             if (!stillHere()) return;
 
             const reviews = reviewPage.items;
+            this.reviews = reviews;
             const relatedBooks = book.relatedBooks.filter(b => b.id !== book.id).slice(0, 4);
             const isFav = store.isWishlisted(book.id);
             const soldOut = book.stock <= 0;
@@ -82,7 +87,7 @@ const bookDetailPage = {
                                     <span class="font-bold text-sm">Số Lượng:</span>
                                     <div class="quantity-spinner">
                                         <button class="qty-btn" onclick="bookDetailPage.changeQty(-1)" ${soldOut ? 'disabled' : ''}>-</button>
-                                        <input type="number" id="detail-book-qty" class="qty-input" value="${soldOut ? 0 : 1}" min="1" max="${book.stock}" ${soldOut ? 'disabled' : ''}>
+                                        <input type="number" id="detail-book-qty" class="qty-input" value="${soldOut ? 0 : 1}" min="1" max="${book.stock}" ${soldOut ? 'disabled' : ''} onchange="bookDetailPage.validateQtyInput(this, ${book.stock})">
                                         <button class="qty-btn" onclick="bookDetailPage.changeQty(1, ${book.stock})" ${soldOut ? 'disabled' : ''}>+</button>
                                     </div>
                                     <span class="text-xs ${soldOut ? 'text-danger font-bold' : 'text-muted'}">${soldOut ? 'Tạm hết hàng' : `(${book.stock} cuốn có sẵn trong kho)`}</span>
@@ -163,7 +168,7 @@ const bookDetailPage = {
 
                             <!-- Write Review Box -->
                             <div class="p-4 rounded-lg mb-6" style="background: var(--bg-subtle); border: 1px solid var(--border-color);">
-                                <h4 class="font-bold text-sm mb-2">Để Lại Đánh Giá Của Bạn</h4>
+                                <h4 class="font-bold text-sm mb-2" id="review-box-title">Để Lại Đánh Giá Của Bạn</h4>
                                 <div class="d-flex items-center gap-2 mb-3">
                                     <span class="text-xs text-muted font-semibold">Chấm điểm:</span>
                                     <div class="star-rating-interactive" id="review-stars-selector">
@@ -173,9 +178,10 @@ const bookDetailPage = {
                                 <div class="form-group mb-2">
                                     <textarea id="review-comment-input" class="form-textarea" rows="3" placeholder="Chia sẻ cảm nhận chân thật của bạn về cuốn sách này nhé..."></textarea>
                                 </div>
-                                <button class="btn btn-primary btn-sm" onclick="bookDetailPage.submitReview('${book.id}')">
+                                <button class="btn btn-primary btn-sm" id="btn-submit-review" onclick="bookDetailPage.submitReview('${book.id}')">
                                     <i class="fa-solid fa-paper-plane mr-1"></i> Gửi Đánh Giá
                                 </button>
+                                <button class="btn btn-ghost btn-sm d-none" id="btn-cancel-edit-review" onclick="bookDetailPage.cancelEditReview()">Huỷ sửa</button>
                             </div>
 
                             <div class="reviews-list" id="book-reviews-list">${this.renderReviews(reviews)}</div>
@@ -199,7 +205,8 @@ const bookDetailPage = {
             `;
         } catch (err) {
             if (!stillHere()) return;
-            container.innerHTML = `<div class="container py-12 text-center text-danger"><h3>${esc(err.message)}</h3><a href="#/catalog" class="btn btn-primary mt-3">Quay lại danh mục</a></div>`;
+            const msg = err.status === 404 ? 'Không tìm thấy cuốn sách này. Có thể sách đã bị gỡ khỏi cửa hàng.' : err.message;
+            container.innerHTML = `<div class="container py-12 text-center text-danger"><h3>${esc(msg)}</h3><a href="#/catalog" class="btn btn-primary mt-3">Quay lại danh mục</a></div>`;
         }
     },
 
@@ -211,7 +218,11 @@ const bookDetailPage = {
                 <div class="flex-1">
                     <div class="d-flex items-center justify-between mb-1">
                         <div class="font-bold text-sm">${esc(r.userName)} ${r.verified ? '<span class="badge badge-success text-xs">Đã mua hàng</span>' : ''}</div>
-                        <div class="text-xs text-muted">${store.formatDate(r.date)}</div>
+                        <div class="text-xs text-muted">${store.formatDate(r.date)}
+                            ${store.currentUser && store.currentUser.id === r.userId ? `
+                            <button class="btn btn-xs btn-outline-primary" style="margin-left: 0.5rem;" onclick="bookDetailPage.editReview('${r.id}')"><i class="fa-solid fa-pen"></i> Sửa</button>
+                            <button class="btn btn-xs btn-outline-danger" onclick="bookDetailPage.deleteReview('${r.id}', '${r.bookId}')"><i class="fa-solid fa-trash"></i> Xoá</button>` : ''}
+                        </div>
                     </div>
                     <div class="star-rating mb-2">
                         ${Array.from({ length: r.rating }).map(() => `<i class="fa-solid fa-star"></i>`).join('')}
@@ -230,6 +241,16 @@ const bookDetailPage = {
         if (current < 1) current = 1;
         if (current > max) current = max;
         input.value = current;
+    },
+
+    validateQtyInput(input, max = 99) {
+        let val = parseInt(input.value) || 1;
+        if (val < 1) val = 1;
+        if (val > max) {
+            val = max;
+            appToast.warning(`Trong kho chỉ còn ${max} cuốn!`, 'Thông báo');
+        }
+        input.value = val;
     },
 
     currentQty() {
@@ -270,14 +291,61 @@ const bookDetailPage = {
         }
 
         try {
-            await ApiService.reviews.create(bookId, this.selectedRating, undefined, comment);
-            appToast.success('Cảm ơn bạn đã gửi đánh giá cuốn sách!', 'Đánh Giá');
-            this.render(document.getElementById('main-view'), bookId).then(() => {
-                const tab = document.querySelector('.nav-tabs .tab-btn:nth-child(3)');
-                if (tab) this.switchTab('reviews', tab);
-            });
+            if (this.editingReviewId) {
+                const old = this.reviews.find(r => r.id === this.editingReviewId);
+                await ApiService.reviews.update(this.editingReviewId, bookId, this.selectedRating, old && old.title || undefined, comment);
+                appToast.success('Đã cập nhật đánh giá của bạn!', 'Đánh Giá');
+            } else {
+                await ApiService.reviews.create(bookId, this.selectedRating, undefined, comment);
+                appToast.success('Cảm ơn bạn đã gửi đánh giá cuốn sách!', 'Đánh Giá');
+            }
+            this.reloadOnReviews(bookId);
         } catch (err) {
             appToast.error(err.message || 'Lỗi gửi đánh giá.');
         }
+    },
+
+    reloadOnReviews(bookId) {
+        this.render(document.getElementById('main-view'), bookId).then(() => {
+            const tab = document.querySelector('.nav-tabs .tab-btn:nth-child(3)');
+            if (tab) this.switchTab('reviews', tab);
+        });
+    },
+
+    editReview(reviewId) {
+        const r = this.reviews.find(x => x.id === reviewId);
+        if (!r) return;
+        this.editingReviewId = reviewId;
+        this.setRating(r.rating);
+        document.getElementById('review-comment-input').value = r.comment;
+        document.getElementById('review-box-title').textContent = 'Sửa Đánh Giá Của Bạn';
+        document.getElementById('btn-submit-review').innerHTML = '<i class="fa-solid fa-floppy-disk mr-1"></i> Lưu Thay Đổi';
+        document.getElementById('btn-cancel-edit-review').classList.remove('d-none');
+        document.getElementById('review-comment-input').focus();
+    },
+
+    cancelEditReview() {
+        this.editingReviewId = null;
+        this.setRating(5);
+        document.getElementById('review-comment-input').value = '';
+        document.getElementById('review-box-title').textContent = 'Để Lại Đánh Giá Của Bạn';
+        document.getElementById('btn-submit-review').innerHTML = '<i class="fa-solid fa-paper-plane mr-1"></i> Gửi Đánh Giá';
+        document.getElementById('btn-cancel-edit-review').classList.add('d-none');
+    },
+
+    deleteReview(reviewId, bookId) {
+        modalManager.confirm({
+            title: 'Xoá Đánh Giá',
+            message: 'Bạn có chắc muốn xoá đánh giá này?',
+            onConfirm: async () => {
+                try {
+                    await ApiService.reviews.remove(reviewId);
+                    appToast.success('Đã xoá đánh giá.');
+                    this.reloadOnReviews(bookId);
+                } catch (err) {
+                    app.showError(err);
+                }
+            }
+        });
     }
 };
