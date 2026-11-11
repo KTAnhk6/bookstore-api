@@ -100,12 +100,15 @@ const navbarComponent = {
 
             <!-- Sub-Navbar / Categories Ribbon -->
             <div class="sub-nav-bar">
-                <div class="container">
+                <div class="container d-flex items-center justify-between">
                     <div class="sub-nav-list">
                         <a href="#/catalog" class="sub-nav-item ${location.hash.startsWith('#/catalog') && !currentCategory ? 'active' : ''}"><i class="fa-solid fa-grid-2 mr-1"></i> Tất Cả Sách</a>
                         ${subNav.map(c => `<a href="#/catalog?category=${c.id}" class="sub-nav-item ${currentCategory === String(c.id) || currentCategory === c.slug ? 'active' : ''}"><i class="fa-solid ${this.subNavCategories[c.slug]} mr-1"></i> ${esc(c.name)}</a>`).join('')}
-                        <a href="#/recommendations" class="sub-nav-item text-primary font-bold"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Đề Xuất Theo Sở Thích</a>
+                        <a href="#/recommendations" class="sub-nav-item text-primary font-bold ${location.hash.startsWith('#/recommendations') ? 'active' : ''}"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Đề Xuất Theo Sở Thích</a>
                     </div>
+                    <button class="btn btn-xs btn-outline-primary d-none d-md-flex items-center gap-1" onclick="favoriteGenresModal.open()" title="Tùy chỉnh 5 thể loại sách yêu thích" style="font-weight: 600; white-space: nowrap; border-radius: var(--radius-full); padding: 0.35rem 0.75rem;">
+                        <i class="fa-solid fa-sliders"></i> Tùy Chỉnh Sở Thích
+                    </button>
                 </div>
             </div>
         `;

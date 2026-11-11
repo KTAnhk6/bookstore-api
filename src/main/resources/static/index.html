@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> 2026-BookNest - Nhà Sách Trực Tuyến & Hệ Thống Quản Lý Tri Thức</title>
+    <title>BookNest - Nhà Sách Trực Tuyến & Hệ Thống Quản Lý Tri Thức</title>
     <meta name="description" content="Khám phá hàng ngàn đầu sách hay với gợi ý thông minh theo sở thích, giao hàng nhanh chóng, thanh toán VietQR tiện lợi.">
     
     <!-- Google Fonts: Plus Jakarta Sans -->
@@ -175,11 +175,14 @@
                 <button class="modal-close-btn" onclick="modalManager.close('favorite-genres-modal')"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body">
-                <div class="favorite-counter-bar mb-3">
+                <div class="favorite-counter-bar mb-2 d-flex justify-between items-center">
                     <span class="text-sm font-semibold">Đã chọn: <strong id="fav-selected-count" class="text-primary font-bold">0</strong> / 5 thể loại</span>
-                    <div class="progress-bar-container">
-                        <div class="progress-fill" id="fav-progress-fill" style="width: 0%;"></div>
-                    </div>
+                    <button type="button" class="btn btn-ghost btn-xs text-muted" id="btn-clear-all-favs" onclick="favoriteGenresModal.clearAll()" style="display: none; padding: 2px 8px; font-size: 0.75rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                        <i class="fa-solid fa-rotate-left mr-1"></i> Bỏ chọn tất cả
+                    </button>
+                </div>
+                <div class="progress-bar-container mb-3">
+                    <div class="progress-fill" id="fav-progress-fill" style="width: 0%;"></div>
                 </div>
                 <div class="genres-grid-selection" id="favorite-genres-list">
                     <!-- Dynamic genres with icons rendered here -->
@@ -203,6 +206,7 @@
     <script src="js/components/toast.js"></script>
     <script src="js/components/modal.js"></script>
     <script src="js/components/captcha.js"></script>
+    <script src="js/components/address-picker.js"></script>
     <script src="js/components/chart.js"></script>
     <script src="js/components/navbar.js"></script>
     

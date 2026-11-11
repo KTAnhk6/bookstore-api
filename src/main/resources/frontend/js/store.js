@@ -127,12 +127,16 @@ class BookNestStore {
 
     // ---------- Thể loại yêu thích ----------
     getFavoriteCategories() {
-        return this.favoriteCategoryIds;
+        return (this.favoriteCategoryIds || []).map(String);
     }
 
     async saveFavoriteCategories(ids) {
         const saved = await ApiService.users.saveFavoriteCategories(ids);
-        this.favoriteCategoryIds = saved.map(c => c.id);
+        if (saved && Array.isArray(saved) && saved.length > 0) {
+            this.favoriteCategoryIds = saved.map(c => String(c.id));
+        } else {
+            this.favoriteCategoryIds = (ids || []).map(String);
+        }
         const user = this.currentUser;
         if (user) this.setUser({ ...user, hasSetPreferences: true });
         this.notify('favorites_updated', this.favoriteCategoryIds);

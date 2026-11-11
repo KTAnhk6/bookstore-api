@@ -253,6 +253,18 @@ const authPage = {
                                     <input type="text" id="forgot-email" class="form-input" placeholder="email@domain.com hoặc tên đăng nhập" required>
                                 </div>
                             </div>
+                            <div class="form-group">
+                                <label class="form-label">Mã xác thực (Captcha) <span class="required-mark">*</span></label>
+                                <div class="captcha-container">
+                                    <div class="captcha-canvas-box">
+                                        <canvas id="forgot-captcha-canvas" width="140" height="44" class="captcha-canvas"></canvas>
+                                    </div>
+                                    <button type="button" class="captcha-refresh-btn" title="Đổi mã khác" onclick="authPage.refreshCaptcha()">
+                                        <i class="fa-solid fa-arrows-rotate"></i>
+                                    </button>
+                                    <input type="text" id="forgot-captcha-input" class="form-input text-uppercase font-bold" placeholder="Nhập mã..." maxlength="6" style="width: 140px;" required>
+                                </div>
+                            </div>
                             <button type="submit" class="btn btn-primary btn-block btn-lg mt-3">
                                 <i class="fa-solid fa-paper-plane mr-1"></i> Gửi Mã Khôi Phục
                             </button>
@@ -269,7 +281,7 @@ const authPage = {
                                     <i class="fa-solid fa-key input-icon"></i>
                                     <input type="text" id="reset-token" class="form-input text-uppercase font-bold" placeholder="Mã gồm 10 ký tự" required value="${esc(this.resetToken)}">
                                 </div>
-                                <div class="text-xs text-muted mt-1">Hệ thống chưa gắn dịch vụ email nên mã được hiển thị ngay sau khi bạn yêu cầu khôi phục.</div>
+                                <div class="text-xs text-muted mt-1">Mã gồm 10 ký tự đã được gửi tới email của tài khoản, có hiệu lực trong 1 giờ.</div>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Mật khẩu mới <span class="required-mark">*</span></label>
@@ -314,8 +326,8 @@ const authPage = {
 
     initCaptcha() {
         setTimeout(() => {
-            const canvasId = this.activeTab === 'login' ? 'login-captcha-canvas' : 'reg-captcha-canvas';
-            this.captchaInstance = new VisualCaptcha(canvasId);
+            const canvasId = { login: 'login-captcha-canvas', register: 'reg-captcha-canvas', 'forgot-password': 'forgot-captcha-canvas' }[this.activeTab];
+            this.captchaInstance = canvasId ? new VisualCaptcha(canvasId) : null;
         }, 50);
     },
 
@@ -382,22 +394,22 @@ const authPage = {
         const pass = document.getElementById('login-password').value;
         const captchaInput = document.getElementById('login-captcha-input').value.trim();
 
-        // Validate Captcha
-        if (!this.captchaInstance.validate(captchaInput)) {
+        // Mã captcha do server kiểm tra; ở đây chỉ chặn khi bỏ trống
+        if (!captchaInput) {
             document.getElementById('err-login-captcha').classList.remove('d-none');
-            this.refreshCaptcha();
             return;
         } else {
             document.getElementById('err-login-captcha').classList.add('d-none');
         }
 
         try {
-            const res = await ApiService.auth.login(email, pass);
-            await store.setSession(res.user, res.token);
+            const res = await ApiService.auth.login(email, pass, this.captchaInstance.headers(captchaInput));
+            await store.setSession(res.user, res.token, res.refreshToken);
             appToast.success(`Chào mừng trở lại, ${res.user.name}!`, 'Đăng Nhập Thành Công');
             app.navigate(store.canAdmin ? '#/admin' : '#/');
         } catch (err) {
             appToast.error(err.message || 'Sai tên đăng nhập hoặc mật khẩu!');
+            document.getElementById('login-captcha-input').value = '';
             this.refreshCaptcha();
         }
     },
@@ -407,7 +419,7 @@ const authPage = {
         const fullName = document.getElementById('reg-name').value.trim();
         const username = document.getElementById('reg-username').value.trim();
         const email = document.getElementById('reg-email').value.trim();
-        const phone = document.getElementById('reg-phone').value.trim();
+        const phone = document.getElementById('reg-phone').value.replace(/[\s.\-]/g, '');
         const pass = document.getElementById('reg-password').value;
         const repass = document.getElementById('reg-repassword').value;
         const captchaInput = document.getElementById('reg-captcha-input').value.trim();
@@ -419,9 +431,8 @@ const authPage = {
             document.getElementById('err-reg-repassword').classList.add('d-none');
         }
 
-        if (!this.captchaInstance.validate(captchaInput)) {
+        if (!captchaInput) {
             document.getElementById('err-reg-captcha').classList.remove('d-none');
-            this.refreshCaptcha();
             return;
         } else {
             document.getElementById('err-reg-captcha').classList.add('d-none');
@@ -429,9 +440,9 @@ const authPage = {
 
         try {
             // Đăng ký xong backend trả token, đăng nhập luôn
-            await ApiService.auth.register({ username, fullName, email, phone: phone || undefined, password: pass });
-            const res = await ApiService.auth.login(username, pass);
-            await store.setSession(res.user, res.token);
+            const res = await ApiService.auth.register({ username, fullName, email, phone: phone || undefined, password: pass },
+                this.captchaInstance.headers(captchaInput));
+            await store.setSession(res.user, res.token, res.refreshToken);
             appToast.success('Đăng ký tài khoản thành công!', 'Chúc Mừng');
 
             // Mở hộp chọn thể loại yêu thích cho người mới
@@ -442,6 +453,7 @@ const authPage = {
             app.navigate('#/');
         } catch (err) {
             appToast.error(err.message || 'Lỗi khi đăng ký tài khoản!');
+            document.getElementById('reg-captcha-input').value = '';
             this.refreshCaptcha();
         }
     },
@@ -449,13 +461,17 @@ const authPage = {
     async handleForgotPassword(e) {
         e.preventDefault();
         const who = document.getElementById('forgot-email').value.trim();
+        const captchaInput = document.getElementById('forgot-captcha-input').value.trim();
         try {
-            // Backend chưa gắn dịch vụ email nên trả mã ngay trong phản hồi
-            this.resetToken = (await ApiService.auth.forgotPassword(who)).data;
-            appToast.success(`Mã khôi phục của bạn là ${this.resetToken} (hiệu lực 1 giờ).`, 'Đã Tạo Mã');
+            // Mã khôi phục được gửi qua email, không trả về trình duyệt
+            const res = await ApiService.auth.forgotPassword(who, this.captchaInstance.headers(captchaInput));
+            this.resetToken = '';
+            appToast.success(res.message, 'Đã Gửi Mã');
             this.switchTab('reset-password');
         } catch (err) {
             appToast.error(err.message || 'Không tìm thấy tài khoản!');
+            document.getElementById('forgot-captcha-input').value = '';
+            this.refreshCaptcha();
         }
     },
 
