@@ -6,9 +6,15 @@ services:
     ports:
       - "8085:8080"
     restart: unless-stopped
+    networks:
+      - nat
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://172.23.176.1:3306/bookstore?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: bookstore_user
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_SECURITY_USER_NAME: admin
       SPRING_SECURITY_USER_PASSWORD: ${ADMIN_PASSWORD}
+
+networks:
+  nat:
+    external: true
