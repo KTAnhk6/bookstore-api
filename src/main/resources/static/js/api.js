@@ -5,7 +5,7 @@
  */
 
 const API_CONFIG = {
-    BASE_URL: 'http://localhost:8080/api',
+        BASE_URL: (window.location.port === '3000' || window.location.port === '5500') ? 'http://localhost:8080/api' : '/api',
     TIMEOUT: 20000,
     TOKEN_KEY: 'booknest_jwt_token',
     REFRESH_KEY: 'booknest_refresh_token',
