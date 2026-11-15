@@ -160,7 +160,7 @@ const homePage = {
                     <div class="section-header">
                         <div class="section-title-wrap">
                             <h2>
-                                <span class="section-icon-badge" style="background: #dcfce7; color: #16a34a;"><i class="fa-solid fa-sparkles"></i></span>
+                                <span class="section-icon-badge" style="background: #dcfce7; color: #16a34a;"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
                                 Sách Mới Phát Hành
                             </h2>
                             <p>Cập nhật những tựa sách mới nhất từ các nhà xuất bản</p>
@@ -183,7 +183,7 @@ const homePage = {
         const seen = new Set();
         return [
             { book: bestseller, tag: '<i class="fa-solid fa-fire"></i> Bán Chạy Nhất', lead: 'Được Mua Nhiều Nhất', btn: 'btn-primary' },
-            { book: newest, tag: '<i class="fa-solid fa-sparkles"></i> Mới Phát Hành', lead: 'Vừa Lên Kệ', btn: 'btn-accent' },
+            { book: newest, tag: '<i class="fa-solid fa-wand-magic-sparkles"></i> Mới Phát Hành', lead: 'Vừa Lên Kệ', btn: 'btn-accent' },
             { book: deal, tag: '<i class="fa-solid fa-bolt"></i> Ưu Đãi Hôm Nay', lead: 'Giá Tốt Hôm Nay', btn: 'btn-primary' }
         ].filter(s => s.book && !seen.has(s.book.id) && seen.add(s.book.id));
     },

@@ -92,7 +92,7 @@ const recommendationsPage = {
                     <div class="section-title-wrap">
                         <h2>
                             <span class="section-icon-badge" style="background: #fef3c7; color: #d97706;">
-                                <i class="fa-solid fa-sparkles"></i>
+                                <i class="fa-solid fa-wand-magic-sparkles"></i>
                             </span>
                             Danh Sách Sách Phù Hợp Nhất
                         </h2>

@@ -83,7 +83,7 @@ const navbarComponent = {
                                     </div>
                                     <a href="#/profile" class="user-dropdown-item"><i class="fa-solid fa-user"></i> Tài Khoản & Sổ Địa Chỉ</a>
                                     <a href="#/profile?tab=orders" class="user-dropdown-item"><i class="fa-solid fa-box-archive"></i> Đơn Hàng Của Tôi</a>
-                                    <a href="#/recommendations" class="user-dropdown-item"><i class="fa-solid fa-sparkles"></i> Sách Đề Xuất Cho Tôi</a>
+                                    <a href="#/recommendations" class="user-dropdown-item"><i class="fa-solid fa-wand-magic-sparkles"></i> Sách Đề Xuất Cho Tôi</a>
                                     <div class="user-dropdown-item" onclick="favoriteGenresModal.open()"><i class="fa-solid fa-heart-pulse"></i> Đổi 5 Thể Loại Yêu Thích</div>
                                     ${store.canAdmin ? '<a href="#/admin" class="user-dropdown-item"><i class="fa-solid fa-gauge-high"></i> Trang Quản Trị</a>' : ''}
                                     <div class="user-dropdown-item danger-item" onclick="store.logout(); appToast.info('Đã đăng xuất thành công!'); app.navigate('#/auth');"><i class="fa-solid fa-right-from-bracket"></i> Đăng Xuất</div>
