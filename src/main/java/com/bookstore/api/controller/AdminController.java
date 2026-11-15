@@ -35,6 +35,7 @@ public class AdminController {
     private final com.bookstore.api.service.OrderService orderService;
 
     @GetMapping({"/dashboard-stats"})
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<DashboardStatsResponse>> getDashboardStats() {
         DashboardStatsResponse stats = dashboardService.getStats();
         return ResponseEntity.ok(ApiResponse.success(stats));

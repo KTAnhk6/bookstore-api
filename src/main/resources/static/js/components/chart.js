@@ -91,34 +91,50 @@ const chartRenderer = {
             return { x, y, val, month: m };
         });
 
+        // Hàm tạo đường cong mượt đi chuẩn xác qua từng điểm dữ liệu (Catmull-Rom Spline)
+        const buildCurvePath = (pathCtx) => {
+            pathCtx.moveTo(points[0].x, points[0].y);
+            const maxY = height - padding.bottom;
+            for (let i = 0; i < points.length - 1; i++) {
+                const p0 = (i > 0) ? points[i - 1] : points[i];
+                const p1 = points[i];
+                const p2 = points[i + 1];
+                const p3 = (i < points.length - 2) ? points[i + 2] : p2;
+
+                if (p1.val === 0 && p2.val === 0) {
+                    pathCtx.lineTo(p2.x, p2.y);
+                    continue;
+                }
+
+                let cp1x = p1.x + (p2.x - p0.x) / 6;
+                let cp1y = p1.y + (p2.y - p0.y) / 6;
+                let cp2x = p2.x - (p3.x - p1.x) / 6;
+                let cp2y = p2.y - (p3.y - p1.y) / 6;
+
+                // Giới hạn để đường uốn không bị võng xuống dưới trục hoành (0đ)
+                cp1y = Math.min(maxY, Math.max(padding.top, cp1y));
+                cp2y = Math.min(maxY, Math.max(padding.top, cp2y));
+
+                pathCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+            }
+        };
+
         // Vùng chuyển màu mềm mại dưới đường cong
         const areaGrad = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
         areaGrad.addColorStop(0, 'rgba(79, 70, 229, 0.32)');
         areaGrad.addColorStop(1, 'rgba(79, 70, 229, 0.00)');
 
         ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        for (let i = 0; i < points.length - 1; i++) {
-            const xc = (points[i].x + points[i + 1].x) / 2;
-            const yc = (points[i].y + points[i + 1].y) / 2;
-            ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
-        }
-        ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+        buildCurvePath(ctx);
         ctx.lineTo(points[points.length - 1].x, height - padding.bottom);
         ctx.lineTo(points[0].x, height - padding.bottom);
         ctx.closePath();
         ctx.fillStyle = areaGrad;
         ctx.fill();
 
-        // Đường biểu đồ chính
+        // Đường biểu đồ chính đi chính xác qua các điểm
         ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        for (let i = 0; i < points.length - 1; i++) {
-            const xc = (points[i].x + points[i + 1].x) / 2;
-            const yc = (points[i].y + points[i + 1].y) / 2;
-            ctx.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
-        }
-        ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+        buildCurvePath(ctx);
         ctx.strokeStyle = '#6366f1';
         ctx.lineWidth = 3;
         ctx.stroke();

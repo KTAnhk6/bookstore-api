@@ -97,9 +97,25 @@ const adminPage = {
         }
     },
 
+    isAdminOnlyTab(tab) {
+        return ['dashboard', 'reports', 'payments', 'users'].includes(tab);
+    },
+
+    getVisibleTabs() {
+        return this.TABS;
+    },
+
     async render(container, queryParams = {}) {
-        this.activeTab = queryParams.tab || this.activeTab || 'dashboard';
         const user = store.currentUser;
+        const visibleTabs = this.getVisibleTabs();
+
+        if (queryParams.tab) {
+            this.activeTab = queryParams.tab;
+        } else if (user && user.role === 'STAFF' && (!this.activeTab || this.isAdminOnlyTab(this.activeTab))) {
+            this.activeTab = 'books';
+        } else if (!this.activeTab) {
+            this.activeTab = 'dashboard';
+        }
 
         container.innerHTML = `
             <div class="admin-layout-wrapper">
@@ -114,12 +130,17 @@ const adminPage = {
                         </div>
                     </div>
 
-                    ${this.TABS.map(([key, icon, label]) => `
-                        <div class="admin-sidebar-item ${this.activeTab === key ? 'active' : ''}" data-tab="${key}" onclick="adminPage.switchTab('${key}')">
-                            <i class="fa-solid ${icon}"></i>
-                            <span>${label}</span>
+                    ${visibleTabs.map(([key, icon, label]) => {
+                        const isLocked = user && user.role === 'STAFF' && this.isAdminOnlyTab(key);
+                        return `
+                        <div class="admin-sidebar-item ${this.activeTab === key ? 'active' : ''}" data-tab="${key}" onclick="adminPage.switchTab('${key}')" style="display: flex; align-items: center; justify-content: space-between;">
+                            <div class="d-flex items-center gap-2" style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                <i class="fa-solid ${icon}"></i>
+                                <span>${label}</span>
+                            </div>
+                            ${isLocked ? `<i class="fa-solid fa-lock text-xs" title="Chức năng dành cho Quản trị viên" style="opacity: 0.6; font-size: 0.75rem; margin-left: 0.5rem;"></i>` : ''}
                         </div>
-                    `).join('')}
+                    `;}).join('')}
 
                     <div class="mt-auto pt-4" style="border-top: 1px solid var(--border-subtle);">
                         <div class="admin-sidebar-item" onclick="app.navigate('#/')">
@@ -159,11 +180,45 @@ const adminPage = {
         return this.renderActiveTab();
     },
 
+    renderLockedView(tabName, customMessage = '') {
+        return `
+            <div class="container py-12 text-center">
+                <div class="admin-card-container" style="max-width: 600px; margin: 3rem auto; padding: 3rem 2rem; border-radius: var(--radius-xl); border: 1px solid var(--border-color); box-shadow: var(--shadow-md);">
+                    <div style="width: 76px; height: 76px; margin: 0 auto 1.5rem; border-radius: 50%; background: rgba(239, 68, 68, 0.1); color: #ef4444; display: flex; align-items: center; justify-content: center; font-size: 2.25rem;">
+                        <i class="fa-solid fa-lock"></i>
+                    </div>
+                    <h2 class="text-xl font-bold mb-2">Chức Năng Bị Khoá</h2>
+                    <p class="text-muted text-sm mb-6" style="line-height: 1.6;">
+                        Trang <strong>${esc(tabName)}</strong> chỉ dành riêng cho <strong>Quản Trị Viên (ADMIN)</strong>.<br>
+                        ${customMessage ? esc(customMessage) : 'Tài khoản của bạn là <strong>Nhân Viên (STAFF)</strong> nên không có quyền truy cập hoặc thực hiện thao tác này.'}
+                    </p>
+                    <div class="d-flex justify-center gap-3">
+                        <button class="btn btn-primary btn-sm" onclick="adminPage.switchTab('books')">
+                            <i class="fa-solid fa-book-open mr-1"></i> Quản Lý Sách
+                        </button>
+                        <button class="btn btn-outline btn-sm" onclick="adminPage.switchTab('orders')">
+                            <i class="fa-solid fa-receipt mr-1"></i> Quản Lý Đơn Hàng
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+    },
+
     async renderActiveTab() {
         const viewport = document.getElementById('admin-viewport');
         if (!viewport) return;
 
         const tab = this.activeTab;
+        const user = store.currentUser;
+
+        // Nếu là Nhân viên (STAFF) bấm vào các tab bị khóa (Dashboard, Báo cáo doanh thu, Người dùng, Thanh toán QR...)
+        if (user && user.role === 'STAFF' && this.isAdminOnlyTab(tab)) {
+            const tabObj = this.TABS.find(([k]) => k === tab);
+            const tabName = tabObj ? tabObj[2] : tab;
+            viewport.innerHTML = this.renderLockedView(tabName);
+            return;
+        }
+
         const stillHere = () => this.activeTab === tab && document.getElementById('admin-viewport') === viewport;
         viewport.innerHTML = '<div class="text-center py-8 text-muted"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang tải dữ liệu...</div>';
 
@@ -183,7 +238,14 @@ const adminPage = {
             await renderers[tab]();
         } catch (err) {
             if (stillHere()) {
-                viewport.innerHTML = `<div class="text-center py-8 text-danger">${esc(err.message || 'Không tải được dữ liệu.')}</div>`;
+                const isForbidden = (err.response && err.response.status === 403) || (err.message && err.message.includes('quyền'));
+                if (isForbidden) {
+                    const tabObj = this.TABS.find(([k]) => k === tab);
+                    const tabName = tabObj ? tabObj[2] : tab;
+                    viewport.innerHTML = this.renderLockedView(tabName, err.message || 'Bạn không có quyền thực hiện hành động này!');
+                } else {
+                    viewport.innerHTML = `<div class="text-center py-8 text-danger">${esc(err.message || 'Không tải được dữ liệu.')}</div>`;
+                }
             }
         }
     },

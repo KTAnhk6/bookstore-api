@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 /** Quản lý mã giảm giá cho admin (khách chỉ xem/áp mã qua /api/coupons). */
 @RestController
 @RequestMapping("/api/admin/coupons")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
 @RequiredArgsConstructor
 public class AdminCouponController {
 

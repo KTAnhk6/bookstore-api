@@ -47,5 +47,7 @@ db/bookstore_hien_tai.sql
 
 # Cau hinh cuc bo chua token API ngan hang that
 application-local.properties
+Bookstore_API.postman_collection.json
+giao-dien-minh-chung.html
 bin/
 bo sung/

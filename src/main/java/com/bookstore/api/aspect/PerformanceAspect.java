@@ -12,10 +12,10 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class PerformanceAspect {
 
-    @Pointcut("within(com.bookstore.api.service..*)")
-    public void serviceExecution() {}
+    @Pointcut("within(com.bookstore.api.controller..*) || within(com.bookstore.api.service..*)")
+    public void monitoredExecution() {}
 
-    @Around("serviceExecution()")
+    @Around("monitoredExecution()")
     public Object measureExecutionTime(ProceedingJoinPoint joinPoint) throws Throwable {
         long start = System.currentTimeMillis();
         try {
@@ -28,7 +28,7 @@ public class PerformanceAspect {
                         joinPoint.getSignature().getName(),
                         executionTime);
             } else {
-                log.debug("{}.{}() execution took {} ms",
+                log.info("{}.{}() took {} ms",
                         joinPoint.getSignature().getDeclaringType().getSimpleName(),
                         joinPoint.getSignature().getName(),
                         executionTime);
