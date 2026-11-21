@@ -1,6 +1,5 @@
 pipeline {
-    agent any
-
+    agent { label 'windows' }
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
         disableConcurrentBuilds()
