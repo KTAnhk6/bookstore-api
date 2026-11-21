@@ -39,11 +39,21 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 
+    private String requireSeedPassword(String variableName) {
+        String password = System.getenv(variableName);
+        if (password == null || password.isBlank()) {
+            throw new IllegalStateException(
+                    "Database chưa có người dùng. Cần cấu hình biến môi trường: " + variableName
+            );
+        }
+        return password;
+    }
+
     private void seedUsers() {
         User admin = User.builder()
                 .username("admin")
                 .email("admin@bookstore.vn")
-                .passwordHash(passwordEncoder.encode("admin123"))
+                .passwordHash(passwordEncoder.encode(requireSeedPassword("DEMO_ADMIN_PASSWORD")))
                 .fullName("Quản Trị Viên")
                 .phone("0901234567")
                 .role(User.Role.ADMIN)
@@ -53,7 +63,7 @@ public class DataInitializer implements CommandLineRunner {
         User staff = User.builder()
                 .username("staff")
                 .email("staff@bookstore.vn")
-                .passwordHash(passwordEncoder.encode("staff123"))
+                .passwordHash(passwordEncoder.encode(requireSeedPassword("DEMO_STAFF_PASSWORD")))
                 .fullName("Nhân Viên Bán Hàng")
                 .phone("0902345678")
                 .role(User.Role.STAFF)
@@ -63,7 +73,7 @@ public class DataInitializer implements CommandLineRunner {
         User customer = User.builder()
                 .username("customer")
                 .email("customer@bookstore.vn")
-                .passwordHash(passwordEncoder.encode("password123"))
+                .passwordHash(passwordEncoder.encode(requireSeedPassword("DEMO_CUSTOMER_PASSWORD")))
                 .fullName("Nguyễn Văn Khách")
                 .phone("0903456789")
                 .role(User.Role.CUSTOMER)
