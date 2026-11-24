@@ -18,6 +18,10 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
     Optional<PasswordResetToken> findFirstByUserIdAndUsedFalseOrderByIdDesc(Long userId);
 
     @Modifying
+    @Query("UPDATE PasswordResetToken t SET t.used = true WHERE t.user.id = :userId AND t.used = false")
+    void invalidateUnusedByUserId(@Param("userId") Long userId);
+
+    @Modifying
     @Query("DELETE FROM PasswordResetToken t WHERE t.user.id = :userId")
     void deleteByUserId(@Param("userId") Long userId);
 }

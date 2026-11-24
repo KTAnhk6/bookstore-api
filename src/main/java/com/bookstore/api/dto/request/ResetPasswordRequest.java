@@ -1,6 +1,7 @@
 package com.bookstore.api.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
@@ -15,6 +16,7 @@ public class ResetPasswordRequest {
     private String emailOrUsername;
 
     @NotBlank(message = "Mã xác nhận không được để trống")
+    @Pattern(regexp = "\\d{6}", message = "Mã xác nhận phải gồm đúng 6 chữ số")
     private String token;
 
     @NotBlank(message = "Mật khẩu mới không được để trống")

@@ -287,9 +287,9 @@ const authPage = {
                                 <label class="form-label">Mã khôi phục <span class="required-mark">*</span></label>
                                 <div class="input-with-icon">
                                     <i class="fa-solid fa-key input-icon"></i>
-                                    <input type="text" id="reset-token" class="form-input font-bold" placeholder="Mã gồm 16 ký tự" required inputmode="text" autocomplete="one-time-code" maxlength="16" pattern="[A-Za-z2-9]{16}" title="Mã gồm 16 ký tự" value="${esc(this.resetToken)}">
+                                    <input type="text" id="reset-token" class="form-input font-bold" placeholder="Mã gồm 6 chữ số" required inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" title="Mã gồm đúng 6 chữ số" value="${esc(this.resetToken)}">
                                 </div>
-                                <div class="text-xs text-muted mt-1">Mã gồm 16 ký tự đã được gửi tới email của tài khoản, có hiệu lực trong 1 giờ và chỉ dùng được một lần.</div>
+                                <div class="text-xs text-muted mt-1">Mã gồm 6 chữ số đã được gửi tới email của tài khoản, có hiệu lực trong 1 giờ và chỉ dùng được một lần.</div>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Mật khẩu mới <span class="required-mark">*</span></label>

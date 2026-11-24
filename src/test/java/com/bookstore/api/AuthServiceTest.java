@@ -165,39 +165,62 @@ public class AuthServiceTest {
                 .build();
     }
 
-    @Test void forgotPasswordCreatesStrongOneHourToken() {
+    @Test void forgotPasswordCreatesSixDigitOneHourCode() {
         when(userRepository.findByUsernameOrEmail("testuser", "testuser")).thenReturn(Optional.of(sampleUser));
         authService.forgotPassword(ForgotPasswordRequest.builder().emailOrUsername("testuser").build());
         ArgumentCaptor<PasswordResetToken> saved = ArgumentCaptor.forClass(PasswordResetToken.class);
         verify(passwordResetTokenRepository).save(saved.capture());
-        assertTrue(saved.getValue().getToken().matches("[A-Z2-9]{16}"));
+        verify(passwordResetTokenRepository).invalidateUnusedByUserId(1L);
+        assertTrue(saved.getValue().getToken().matches("\\d{6}"));
         assertTrue(saved.getValue().getExpiredAt().isAfter(LocalDateTime.now().plusMinutes(59)));
         assertTrue(saved.getValue().getExpiredAt().isBefore(LocalDateTime.now().plusMinutes(61)));
         verify(mailService).send(eq("test@example.com"), any(), contains(saved.getValue().getToken()));
     }
+
     @Test void unknownResetTokenRejected() {
+        when(userRepository.findByUsernameOrEmail("testuser", "testuser")).thenReturn(Optional.of(sampleUser));
         assertThrows(BadRequestException.class, () -> authService.resetPassword(resetRequest("UNKNOWN")));
         verify(userRepository, never()).save(any());
     }
+
     @Test void expiredResetTokenRejected() {
-        var token = activeResetCode("ABCDEFGH23456789");
+        var token = activeResetCode("012345");
         token.setExpiredAt(LocalDateTime.now().minusMinutes(1));
-        when(passwordResetTokenRepository.findByToken(token.getToken())).thenReturn(Optional.of(token));
+        when(userRepository.findByUsernameOrEmail("testuser", "testuser")).thenReturn(Optional.of(sampleUser));
+        when(passwordResetTokenRepository.findFirstByUserIdAndUsedFalseOrderByIdDesc(1L)).thenReturn(Optional.of(token));
         assertThrows(BadRequestException.class, () -> authService.resetPassword(resetRequest(token.getToken())));
         verify(userRepository, never()).save(any());
     }
+
     @Test void usedResetTokenRejected() {
-        var token = activeResetCode("ABCDEFGH23456789"); token.setUsed(true);
-        when(passwordResetTokenRepository.findByToken(token.getToken())).thenReturn(Optional.of(token));
+        var token = activeResetCode("012345"); token.setUsed(true);
+        when(userRepository.findByUsernameOrEmail("testuser", "testuser")).thenReturn(Optional.of(sampleUser));
+        when(passwordResetTokenRepository.findFirstByUserIdAndUsedFalseOrderByIdDesc(1L)).thenReturn(Optional.of(token));
         assertThrows(BadRequestException.class, () -> authService.resetPassword(resetRequest(token.getToken())));
     }
+
     @Test void resetTokenNormalizesAndRevokesSessions() {
-        var token = activeResetCode("ABCDEFGH23456789");
-        when(passwordResetTokenRepository.findByToken(token.getToken())).thenReturn(Optional.of(token));
+        var token = activeResetCode("012345");
+        when(userRepository.findByUsernameOrEmail("testuser", "testuser")).thenReturn(Optional.of(sampleUser));
+        when(passwordResetTokenRepository.findFirstByUserIdAndUsedFalseOrderByIdDesc(1L)).thenReturn(Optional.of(token));
         when(passwordEncoder.encode("newpass123")).thenReturn("new_hash");
-        authService.resetPassword(resetRequest(" abcdefgh23456789 "));
+        authService.resetPassword(resetRequest(" 012345 "));
         assertEquals("new_hash", sampleUser.getPasswordHash());
         assertTrue(token.getUsed());
         verify(refreshTokenService).revokeAll(1L);
+    }
+
+    @Test void resetPasswordInvalidCodeLocksAfterFiveAttempts() {
+        var token = activeResetCode("012345");
+        when(userRepository.findByUsernameOrEmail("testuser", "testuser")).thenReturn(Optional.of(sampleUser));
+        when(passwordResetTokenRepository.findFirstByUserIdAndUsedFalseOrderByIdDesc(1L)).thenReturn(Optional.of(token));
+
+        for (int attempt = 1; attempt <= 5; attempt++) {
+            assertThrows(BadRequestException.class, () -> authService.resetPassword(resetRequest("999999")));
+        }
+
+        assertEquals(5, token.getFailedAttempts());
+        assertTrue(token.getUsed());
+        verify(passwordResetTokenRepository, times(5)).save(token);
     }
 }

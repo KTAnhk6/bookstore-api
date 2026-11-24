@@ -141,6 +141,7 @@ public class AuthServiceImpl implements AuthService {
             return FORGOT_PASSWORD_MESSAGE;
         }
 
+        passwordResetTokenRepository.invalidateUnusedByUserId(user.getId());
         String resetToken = generateResetToken();
 
         PasswordResetToken tokenEntity = PasswordResetToken.builder()
@@ -161,27 +162,51 @@ public class AuthServiceImpl implements AuthService {
 
     private static final String FORGOT_PASSWORD_MESSAGE =
             "Nếu thông tin khớp với một tài khoản, mã đặt lại mật khẩu đã được gửi tới email của tài khoản đó";
-    private static final String RESET_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private static final int RESET_TOKEN_LENGTH = 6;
+    private static final int MAX_RESET_TOKEN_ATTEMPTS = 5;
     private static final SecureRandom RANDOM = new SecureRandom();
 
-    /** 16 ký tự từ bảng 32 ký tự (~80 bit), đủ để không dò được qua /reset-password. */
-    private static String generateResetToken() {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < 16; i++) sb.append(RESET_ALPHABET.charAt(RANDOM.nextInt(RESET_ALPHABET.length())));
-        return sb.toString();
+    private String generateResetToken() {
+        String resetToken;
+        do {
+            int value = RANDOM.nextInt(1_000_000);
+            StringBuilder code = new StringBuilder(RESET_TOKEN_LENGTH);
+            for (int divisor = 100_000; divisor > 0; divisor /= 10) {
+                code.append((char) ('0' + (value / divisor) % 10));
+            }
+            resetToken = code.toString();
+        } while (passwordResetTokenRepository.existsByToken(resetToken));
+        return resetToken;
     }
 
     @Override
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
-        PasswordResetToken tokenEntity = passwordResetTokenRepository.findByToken(request.getToken().trim().toUpperCase())
+        String input = request.getEmailOrUsername().trim();
+        User user = userRepository.findByUsernameOrEmail(input, input)
+                .orElseThrow(() -> new BadRequestException("Mã xác thực không hợp lệ hoặc đã hết hạn"));
+        PasswordResetToken tokenEntity = passwordResetTokenRepository
+                .findFirstByUserIdAndUsedFalseOrderByIdDesc(user.getId())
                 .orElseThrow(() -> new BadRequestException("Mã xác thực không hợp lệ hoặc đã hết hạn"));
 
         if (tokenEntity.getUsed() || tokenEntity.getExpiredAt().isBefore(LocalDateTime.now())) {
             throw new BadRequestException("Mã xác thực đã hết hạn, vui lòng yêu cầu lại");
         }
 
-        User user = tokenEntity.getUser();
+        if (tokenEntity.getFailedAttempts() >= MAX_RESET_TOKEN_ATTEMPTS) {
+            throw new BadRequestException("Mã xác thực không hợp lệ hoặc đã hết hạn");
+        }
+
+        if (!tokenEntity.getToken().equals(request.getToken().trim())) {
+            int failedAttempts = tokenEntity.getFailedAttempts() + 1;
+            tokenEntity.setFailedAttempts(failedAttempts);
+            if (failedAttempts >= MAX_RESET_TOKEN_ATTEMPTS) {
+                tokenEntity.setUsed(true);
+            }
+            passwordResetTokenRepository.save(tokenEntity);
+            throw new BadRequestException("Mã xác thực không hợp lệ hoặc đã hết hạn");
+        }
+
         if (passwordEncoder.matches(request.getNewPassword(), user.getPasswordHash())) {
             throw new BadRequestException("Mật khẩu mới phải khác mật khẩu hiện tại");
         }
