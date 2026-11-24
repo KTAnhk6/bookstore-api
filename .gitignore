@@ -1,0 +1,53 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### JDK portable dùng để build/test cục bộ ###
+.tools/
+
+### Bản sao lưu database cục bộ (có dữ liệu người dùng) ###
+db-backup/
+
+# Ảnh người dùng tải lên khi chạy thử
+uploads/
+
+# Mật khẩu và bản dump database có dữ liệu người dùng
+TAI_KHOAN.md
+db/bookstore_hien_tai.sql
+
+# Cau hinh cuc bo chua token API ngan hang that
+application-local.properties
+Bookstore_API.postman_collection.json
+giao-dien-minh-chung.html
+bin/
+bo sung/

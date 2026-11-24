@@ -1,0 +1,239 @@
+====================================================================================================
+BÁO CÁO TỔNG HỢP: DANH SÁCH FILE THỰC HIỆN CÁC PHẦN NHIỆM VỤ TRONG DỰ ÁN BOOKSTORE-API
+Thư mục dự án: d:\bookstore-api-main1 hoàn chỉnh
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+PHẦN 1: TRIỂN KHAI SPRING AOP ASPECT ĐO THỜI GIAN THỰC THI (PERFORMANCE MONITORING)
+         CHO CÁC API QUẢN LÝ SÁCH/DANH MỤC ĐỂ CẢNH BÁO TRUY VẤN CHẬM
+----------------------------------------------------------------------------------------------------
+[TÌNH TRẠNG]: ĐÃ TRIỂN KHAI HOÀN CHỈNH Ở BACKEND.
+
+Các file tham gia thực hiện:
+1. src/main/java/com/bookstore/api/aspect/PerformanceAspect.java
+   - Chức năng: Định nghĩa Aspect chính với @Aspect, @Component.
+   - Sử dụng Pointcut @Around("within(com.bookstore.api.service..*)") bao bọc toàn bộ tầng Service.
+   - Đo thời gian thực thi (System.currentTimeMillis()), nếu thời gian vượt quá 500ms sẽ ghi log cảnh báo:
+     log.warn("Performance warning: {}.{}() took {} ms", ...).
+     Nếu <= 500ms ghi log debug thời gian chạy.
+
+2. src/main/java/com/bookstore/api/aspect/LoggingAspect.java
+   - Chức năng: Aspect bổ trợ ghi log REST Request, REST Response, và bắt exception cho toàn bộ Controller và Service.
+
+3. Các file Service được giám sát đo thời gian (API Quản lý Sách & Danh mục):
+   - src/main/java/com/bookstore/api/service/impl/BookServiceImpl.java
+     (Thực thi tìm kiếm, lọc, thêm, sửa, xóa, phân trang, lấy chi tiết, sách bán chạy...)
+   - src/main/java/com/bookstore/api/service/impl/CategoryServiceImpl.java
+     (Thực thi CRUD thể loại, danh mục sách, phân cấp cây thể loại)
+   - src/main/java/com/bookstore/api/service/BookService.java (Interface)
+   - src/main/java/com/bookstore/api/service/CategoryService.java (Interface)
+
+4. Các Controller kích hoạt luồng qua Service:
+   - src/main/java/com/bookstore/api/controller/AdminBookController.java (API quản lý sách cho Admin: thêm/sửa/xóa sách)
+   - src/main/java/com/bookstore/api/controller/BookController.java (API xem danh mục sách, tìm kiếm, lọc, bestsellers)
+   - src/main/java/com/bookstore/api/controller/CategoryController.java (API danh mục thể loại công khai, tree view & CRUD admin)
+
+5. Cấu hình phụ thuộc:
+   - pom.xml: Khai báo spring-boot-starter-data-jpa (tự động kéo theo org.aspectj:aspectjweaver và spring-aop).
+
+
+----------------------------------------------------------------------------------------------------
+PHẦN 2: TRANG ADMIN THỂ LOẠI (TREE VIEW, THÊM/SỬA NHÁNH) & ADMIN CRUD TÁC GIẢ, NHÀ XUẤT BẢN
+----------------------------------------------------------------------------------------------------
+[TÌNH TRẠNG]: ĐÃ TRIỂN KHAI HOÀN THIỆN ĐẦY ĐỦ CẢ BACKEND VÀ FRONTEND.
+- Thể loại (Category): Đã hỗ trợ cấu trúc Cây phân cấp (Tree View), quan hệ cha-con (parent_id), thêm thể loại gốc và thêm nhánh con trực tiếp trên từng nhánh, mở rộng / thu gọn nhánh, sửa và xóa nhánh.
+- Tác giả (Author) & Nhà xuất bản (Publisher): Đầy đủ API CRUD và giao diện quản lý 2 cột trực quan.
+
+Các file tham gia thực hiện:
+
+A. FRONTEND:
+1. frontend/js/pages/admin.js
+   - renderCategories(): Dựng giao diện Tree View trực quan với biểu tượng thư mục, tag "Gốc"/"Nhánh con", nút Mở rộng/Thu gọn cây, nút "+ Thêm Thể Loại Gốc", nút "+ Nhánh con" trên từng mục, nút Sửa và nút Xoá.
+   - renderTreeNode(), toggleTreeNode(), expandAllTree(), collapseAllTree(), openAddSubcategory(): Xử lý logic hiển thị và tương tác mở/đóng từng nhánh cây thể loại.
+   - renderAuthorsPublishers(): Hiển thị 2 danh sách chia cột trực quan: Tác giả (Author) và Nhà xuất bản (Publisher) kèm nút "+ Thêm Tác Giả", "+ Thêm NXB", nút Sửa, nút Xóa.
+   - ENTITY definition: Bổ sung trường 'parentId' cho category (chọn thể loại cha từ danh mục hiện có, hoặc để trống là nhánh gốc).
+   - openEntityModal(), handleSaveEntity(), deleteEntity(): Modal popup form động hỗ trợ Thêm/Sửa/Xóa Thể loại (kèm cha/con), Tác giả, NXB.
+
+2. frontend/js/api.js
+   - ApiService.categories: Cung cấp list(), tree() (GET /api/categories/tree), create(), update(), remove().
+   - ApiService.authors: Cung cấp list(), create(), update(), remove().
+   - ApiService.publishers: Cung cấp list(), create(), update(), remove().
+   - Adapter.category: Chuyển đổi dữ liệu có parentId, parentName và children mảng cây.
+
+3. frontend/js/store.js
+   - Quản lý state dữ liệu, cache và reload: reloadCategories(), getCategories(), reloadAuthors(), getAuthors(), reloadPublishers(), getPublishers().
+
+4. frontend/css/admin.css
+   - Định kiểu cho cây danh mục: .category-tree-wrapper, .tree-node-item, .tree-node-content, .tree-node-title, .tree-toggle-btn, .tree-children-container.
+
+B. BACKEND:
+1. Thể loại (Category):
+   - src/main/java/com/bookstore/api/entity/Category.java: Khai báo @ManyToOne parent_id mapping quan hệ cha-con tự trỏ.
+   - src/main/java/com/bookstore/api/dto/request/CategoryRequest.java: Thêm trường parentId.
+   - src/main/java/com/bookstore/api/dto/response/CategoryResponse.java: Thêm parentId, parentName, children.
+   - src/main/java/com/bookstore/api/service/CategoryService.java & CategoryServiceImpl.java: Logic getCategoryTree(), createCategory() và updateCategory() liên kết parent category.
+   - src/main/java/com/bookstore/api/controller/CategoryController.java: Thêm endpoint GET /api/categories/tree cùng các API CRUD.
+   - src/main/java/com/bookstore/api/repository/CategoryRepository.java
+
+2. Tác giả (Author):
+   - src/main/java/com/bookstore/api/controller/AuthorController.java (GET, POST, PUT, DELETE /api/authors)
+   - src/main/java/com/bookstore/api/service/AuthorService.java & AuthorServiceImpl.java
+   - src/main/java/com/bookstore/api/repository/AuthorRepository.java
+   - src/main/java/com/bookstore/api/entity/Author.java
+   - src/main/java/com/bookstore/api/dto/request/AuthorRequest.java & AuthorResponse.java
+
+3. Nhà xuất bản (Publisher):
+   - src/main/java/com/bookstore/api/controller/PublisherController.java (GET, POST, PUT, DELETE /api/publishers)
+   - src/main/java/com/bookstore/api/service/PublisherService.java & PublisherServiceImpl.java
+   - src/main/java/com/bookstore/api/repository/PublisherRepository.java
+   - src/main/java/com/bookstore/api/entity/Publisher.java
+   - src/main/java/com/bookstore/api/dto/request/PublisherRequest.java & PublisherResponse.java
+
+
+----------------------------------------------------------------------------------------------------
+PHẦN 3: CẤU HÌNH @PreAuthorize("hasRole('ADMIN')") BẢO VỆ CÁC API THỐNG KÊ,
+         API TỔNG HỢP SỐ LIỆU & API XUẤT BÁO CÁO (EXCEL / PDF)
+----------------------------------------------------------------------------------------------------
+[TÌNH TRẠNG]: ĐÃ TRIỂN KHAI HOÀN THIỆN ĐẦY ĐỦ Ở CẢ BACKEND VÀ FRONTEND.
+
+Các file tham gia thực hiện:
+
+1. Bảo mật API Thống kê bằng @PreAuthorize("hasRole('ADMIN')"):
+   - src/main/java/com/bookstore/api/config/SecurityConfig.java: Khai báo @EnableMethodSecurity cho phép dùng PreAuthorize theo role.
+   - src/main/java/com/bookstore/api/controller/AdminDashboardController.java: Khai báo @PreAuthorize("hasRole('ADMIN')") ở cấp class, bảo vệ các API thống kê (/api/admin/dashboard, /api/admin/dashboard/stats).
+   - src/main/java/com/bookstore/api/controller/AdminReportController.java: Khai báo @PreAuthorize("hasRole('ADMIN')") bảo vệ toàn bộ API báo cáo và xuất file (/api/admin/reports/**).
+   - src/main/java/com/bookstore/api/controller/AdminController.java: Có endpoint /api/admin/dashboard-stats được bảo vệ bởi @PreAuthorize("hasRole('ADMIN') or hasRole('STAFF')").
+
+2. API tổng hợp số liệu:
+   - src/main/java/com/bookstore/api/controller/AdminDashboardController.java: Endpoint getStats() trả về toàn bộ chỉ số dashboard.
+   - src/main/java/com/bookstore/api/service/DashboardService.java & src/main/java/com/bookstore/api/service/impl/DashboardServiceImpl.java:
+     + Doanh thu theo mốc thời gian: monthlyRevenue (12 tháng của năm hiện tại).
+     + Số lượng đơn hàng: monthlyOrders (số đơn 12 tháng), totalOrders, todayOrders, pendingOrders.
+     + Biểu đồ phân tích sở thích/thị hiếu thể loại: categoryRevenue (doanh thu và tỷ trọng gom theo thể loại chính).
+   - src/main/java/com/bookstore/api/dto/response/DashboardStatsResponse.java: DTO chứa toàn bộ dữ liệu thống kê trả về cho client.
+   - src/main/java/com/bookstore/api/repository/OrderItemRepository.java: Chứa câu truy vấn revenueByPrimaryCategory(Pageable pageable) phân tích thị hiếu thể loại từ đơn hàng đã thanh toán/giao thành công.
+   - src/main/java/com/bookstore/api/repository/OrderRepository.java: Đếm và lọc danh sách đơn hàng theo trạng thái & khoảng ngày.
+   - src/main/java/com/bookstore/api/repository/UserRepository.java: Thống kê số lượng user và khách hàng (countByRole).
+   - src/main/java/com/bookstore/api/repository/BookRepository.java: Đếm tổng sách và sách sắp hết hàng (countByStockQuantityLessThan).
+   - Top sách bán chạy nhất:
+     + src/main/java/com/bookstore/api/controller/BookController.java: Endpoint @GetMapping("/bestsellers") gọi getBestSellers(limit).
+     + src/main/java/com/bookstore/api/service/impl/BookServiceImpl.java: Hàm getBestSellers().
+     + src/main/java/com/bookstore/api/repository/BookRepository.java: Hàm findTop10ByStatusOrderBySoldQuantityDesc().
+
+3. API xuất báo cáo dữ liệu dạng file Excel (.xlsx) và PDF:
+   - src/main/java/com/bookstore/api/controller/AdminReportController.java:
+     + GET /api/admin/reports/revenue: API tổng hợp doanh thu theo khoảng ngày startDate, endDate.
+     + GET /api/admin/reports/revenue/excel: Xuất file Excel định dạng .xlsx MIME type application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.
+     + GET /api/admin/reports/revenue/pdf: Xuất file PDF định dạng .pdf MIME type application/pdf.
+   - src/main/java/com/bookstore/api/service/ReportService.java & src/main/java/com/bookstore/api/service/impl/ReportServiceImpl.java:
+     + Logic tạo bảng Excel (Apache POI XSSFWorkbook) định dạng số tiền, ngày tháng, màu sắc, tiêu đề và auto-fit cột.
+     + Logic tạo tài liệu PDF (OpenPDF / com.lowagie.text) với bảng thống kê chỉ số, bảng chi tiết đơn hàng, header/footer.
+   - src/main/java/com/bookstore/api/dto/response/RevenueReportResponse.java: DTO dữ liệu báo cáo doanh thu theo kỳ.
+   - pom.xml: Khai báo org.apache.poi:poi-ooxml (5.2.5) và com.github.librepdf:openpdf (1.3.39).
+
+
+----------------------------------------------------------------------------------------------------
+PHẦN 4: DỰNG TRANG DASHBOARD ADMIN TRỰC QUAN VỚI BIỂU ĐỒ DOANH THU,
+         BIỂU ĐỒ TỶ LỆ ĐƠN HÀNG, BIỂU ĐỒ PHÂN TÍCH SỞ THÍCH THỂ LOẠI
+----------------------------------------------------------------------------------------------------
+[TÌNH TRẠNG]: ĐÃ TRIỂN KHAI HOÀN THIỆN TRÊN GIAO DIỆN FRONTEND.
+
+Các file tham gia thực hiện:
+1. frontend/js/components/chart.js
+   - Chức năng: Thư viện vẽ biểu đồ Canvas độ nét cao (Canvas API chuẩn, không phụ thuộc nặng thư viện ngoài):
+     + renderRevenueLineChart(canvasId, dataPoints): Vẽ biểu đồ diện tích/đường cong (Smooth Curved Area/Line Chart) có hiệu ứng dải màu gradient hiển thị Doanh thu 12 tháng.
+     + renderOrderStatusDonutChart(canvasId, segments, totalLabel): Vẽ biểu đồ vành khuyên thể hiện tỷ lệ đơn hàng (Hoàn thành / Chờ xử lý).
+     + renderCategoryDonutChart(canvasId, segments): Vẽ biểu đồ vành khuyên (Donut Chart) phân tích cơ cấu tỷ trọng doanh thu / thị hiếu thể loại sách của người dùng.
+
+2. frontend/js/pages/admin.js
+   - renderDashboard():
+     + Gọi ApiService.admin.dashboard() để lấy dữ liệu thống kê từ backend.
+     + Lưới 4 thẻ KPI nhanh (Doanh thu đã thu, Tổng đơn hàng & đơn chờ, Đầu sách & sách sắp hết, Khách hàng & tài khoản).
+     + Lưới 3 biểu đồ trực quan:
+       1) Biểu đồ Doanh thu 12 tháng (<canvas id="revenue-line-chart">).
+       2) Biểu đồ Tỷ lệ trạng thái đơn hàng (<canvas id="order-status-chart">).
+       3) Biểu đồ Cơ cấu / sở thích thể loại sách (<canvas id="category-donut-chart">).
+     + Bảng danh sách các đơn hàng mới nhất (Recent Orders) với trạng thái và huy hiệu thanh toán.
+
+3. frontend/js/api.js
+   - ApiService.admin.dashboard(): Gọi GET /api/admin/dashboard-stats.
+
+4. frontend/css/main.css & frontend/css/components.css & frontend/css/admin.css
+   - Định nghĩa layout Admin, các class thống kê: .admin-stats-grid, .stat-card, .dashboard-charts-grid, .chart-card, .chart-canvas-wrapper.
+
+
+----------------------------------------------------------------------------------------------------
+PHẦN 5: TRANG ADMIN QUẢN LÝ THANH TOÁN (LỊCH SỬ GIAO DỊCH ĐỐI SOÁT) &
+         TRANG BÁO CÁO DOANH THU (BỘ LỌC NGÀY/THÁNG, NÚT TẢI BÁO CÁO EXCEL/PDF)
+----------------------------------------------------------------------------------------------------
+[TÌNH TRẠNG]: ĐÃ TRIỂN KHAI HOÀN THIỆN ĐẦY ĐỦ CẢ BACKEND VÀ FRONTEND.
+
+Các file tham gia thực hiện:
+
+A. QUẢN LÝ THANH TOÁN & BẢNG LỊCH SỬ GIAO DỊCH ĐỐI SOÁT:
+1. Frontend:
+   - frontend/js/pages/admin.js: Hàm renderPayments().
+     + Bảng 1: "Phiên Thanh Toán" - Danh sách phiên thanh toán VietQR (mã đơn, nội dung CK, số tiền, đã nhận, tạo lúc, hết hạn, trạng thái).
+     + Bảng 2: "Giao Dịch Ngân Hàng Đã Đối Soát" - Bảng lịch sử giao dịch đối soát (mã tham chiếu refNo, thời gian, số tiền, nội dung CK, đơn hàng, kết quả PAID/PARTIAL/LATE/DUPLICATE).
+     + Nút hành động "Đối Soát Ngay" (syncBank()): Kích hoạt đối soát tự động tức thì.
+   - frontend/js/api.js: ApiService.admin.qrSessions(), ApiService.admin.bankTransactions(), ApiService.admin.syncBank().
+
+2. Backend:
+   - src/main/java/com/bookstore/api/controller/PaymentSessionController.java:
+     + GET /api/payments/qr/admin/sessions (@PreAuthorize("hasRole('ADMIN')"))
+     + GET /api/payments/qr/admin/bank-transactions (@PreAuthorize("hasRole('ADMIN')"))
+     + POST /api/payments/qr/admin/sync (@PreAuthorize("hasRole('ADMIN')"))
+   - src/main/java/com/bookstore/api/service/BankReconciliationService.java:
+     (Logic cốt lõi đối soát giao dịch ngân hàng với phiên thanh toán và đơn hàng)
+   - src/main/java/com/bookstore/api/service/BankHistoryClient.java: Client lấy sao kê giao dịch ngân hàng.
+   - src/main/java/com/bookstore/api/service/PaymentSessionService.java & PaymentSessionServiceImpl.java
+   - src/main/java/com/bookstore/api/service/PaymentService.java & PaymentServiceImpl.java
+   - Entity & Repository: BankTransaction, PaymentSession, Payment.
+
+B. TRANG BÁO CÁO DOANH THU (BỘ LỌC NGÀY/THÁNG, NÚT TẢI EXCEL/PDF):
+1. Frontend:
+   - frontend/js/pages/admin.js:
+     + Tab 'reports' trong TABS: "Báo Cáo Doanh Thu" (icon fa-file-invoice-dollar).
+     + Hàm renderReports():
+       * Bộ lọc ngày/tháng tùy biến (từ ngày... đến ngày...) kèm các nút chọn nhanh (Hôm nay, 7 ngày qua, Tháng này, Năm nay).
+       * Nút bấm "Tải Báo Cáo Excel (.xlsx)" (nút xanh lá kèm icon fa-file-excel).
+       * Nút bấm "Tải Báo Cáo PDF" (nút đỏ kèm icon fa-file-pdf).
+       * 4 thẻ thống kê trực quan (Doanh thu kỳ này, Tổng đơn, Đơn huỷ/hoàn trả, Giá trị TB/đơn).
+       * Bảng thống kê chi tiết toàn bộ các đơn hàng và giao dịch trong khoảng thời gian đã chọn.
+     + Hàm applyReportFilter(): Cập nhật ngày lọc và tải lại báo cáo.
+     + Hàm setReportPreset(): Thiết lập khoảng ngày nhanh.
+     + Hàm exportReport(format): Gọi API tải file blob về máy tính.
+   - frontend/js/api.js:
+     + ApiService.admin.revenueReport(params): Lấy dữ liệu JSON.
+     + ApiService.admin.downloadRevenueExcel(params): Tải file Excel .xlsx từ API backend.
+     + ApiService.admin.downloadRevenuePdf(params): Tải file PDF từ API backend.
+
+2. Backend:
+   - src/main/java/com/bookstore/api/controller/AdminReportController.java
+   - src/main/java/com/bookstore/api/service/ReportService.java & ReportServiceImpl.java
+   - src/main/java/com/bookstore/api/dto/response/RevenueReportResponse.java
+   - src/main/java/com/bookstore/api/repository/OrderRepository.java
+====================================================================================================
+
+----------------------------------------------------------------------------------------------------
+PHẦN 6: CÀI ĐẶT THANH TOÁN QR ĐỘNG TRÊN WEB ADMIN & BỘ CHỌN ĐỊA CHỈ HÀNH CHÍNH VIỆT NAM THÔNG MINH
+----------------------------------------------------------------------------------------------------
+[TÌNH TRẠNG]: ĐÃ TRIỂN KHAI HOÀN THIỆN ĐẦY ĐỦ CẢ BACKEND VÀ FRONTEND TRÊN BẢN MAIN4.
+
+1. Cài đặt Link API MB Bank động ngay trên giao diện Web Admin:
+   - src/main/java/com/bookstore/api/entity/AppSetting.java: Bảng app_settings lưu cấu hình trong DB.
+   - src/main/java/com/bookstore/api/repository/AppSettingRepository.java
+   - src/main/java/com/bookstore/api/service/PaymentSettingsService.java: Kiểm tra kết nối, lưu/xóa link.
+   - src/main/java/com/bookstore/api/controller/PaymentSessionController.java: API GET & PUT /api/payments/qr/admin/settings.
+   - src/main/java/com/bookstore/api/service/BankHistoryClient.java: Ưu tiên link DB, hàm che token mask().
+   - frontend/js/pages/admin.js: Thẻ Cài Đặt Thanh Toán trong tab payments.
+   - frontend/js/api.js: ApiService.admin.paymentSettings(), ApiService.admin.savePaymentSettings().
+   - src/test/java/com/bookstore/api/service/PaymentSettingsServiceTest.java: Unit test nghiệp vụ cài đặt.
+
+2. Bộ chọn Địa chỉ hành chính Việt Nam thông minh (Address Picker):
+   - frontend/data/vn-divisions.json: Danh mục đơn vị hành chính chuẩn hóa.
+   - frontend/js/components/address-picker.js: Combobox dropdown tìm kiếm nhanh không dấu.
+   - frontend/css/components.css: Class .combo-list định kiểu dropdown.
+   - frontend/js/pages/checkout.js & profile.js: Tích hợp chọn Tỉnh/Thành -> Phường/Xã mượt mà.
+   - src/main/java/com/bookstore/api/dto/request/AddressRequest.java & OrderServiceImpl.java: Hỗ trợ linh hoạt cả mô hình địa chỉ mới.
+====================================================================================================

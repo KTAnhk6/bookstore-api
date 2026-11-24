@@ -1,0 +1,68 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] --------------------< com.bookstore:bookstore-api >---------------------
+[INFO] Building bookstore-api 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.5.0:resources (default-resources) @ bookstore-api ---
+[INFO] Copying 1 resource from src/main/resources to target/classes
+[INFO] Copying 154 resources from src/main/resources to target/classes
+[INFO] 
+[INFO] --- compiler:3.15.0:compile (default-compile) @ bookstore-api ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 175 source files with javac [debug parameters release 21] to target/classes
+[INFO] /root/.hermes/cache/scratch/booknest-ready/BookNest/src/main/java/com/bookstore/api/security/JwtAuthenticationFilter.java: Some input files use or override a deprecated API.
+[INFO] /root/.hermes/cache/scratch/booknest-ready/BookNest/src/main/java/com/bookstore/api/security/JwtAuthenticationFilter.java: Recompile with -Xlint:deprecation for details.
+[INFO] 
+[INFO] --- resources:3.5.0:testResources (default-testResources) @ bookstore-api ---
+[INFO] Copying 2 resources from src/test/resources to target/test-classes
+[INFO] 
+[INFO] --- compiler:3.15.0:testCompile (default-testCompile) @ bookstore-api ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 14 source files with javac [debug parameters release 21] to target/test-classes
+[INFO] 
+[INFO] --- surefire:3.5.6:test (default-test) @ bookstore-api ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO] 
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running com.bookstore.api.service.MergeRegressionTest
+14:09:41.138 [main] INFO com.bookstore.api.service.MailService -- [MAIL SERVICE] Đã gửi email tới recipient@example.invalid. Tiêu đề: reset
+[ERROR] Tests run: 4, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 1.818 s <<< FAILURE! -- in com.bookstore.api.service.MergeRegressionTest
+[ERROR] com.bookstore.api.service.MergeRegressionTest.fixedCaptchaInputMustBeRejected -- Time elapsed: 0.055 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: expected: <false> but was: <true>
+	at org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:158)
+	at org.junit.jupiter.api.AssertionFailureBuilder.buildAndThrow(AssertionFailureBuilder.java:139)
+	at org.junit.jupiter.api.AssertFalse.failNotFalse(AssertFalse.java:69)
+	at org.junit.jupiter.api.AssertFalse.assertFalse(AssertFalse.java:41)
+	at org.junit.jupiter.api.AssertFalse.assertFalse(AssertFalse.java:35)
+	at org.junit.jupiter.api.Assertions.assertFalse(Assertions.java:246)
+	at com.bookstore.api.service.MergeRegressionTest.fixedCaptchaInputMustBeRejected(MergeRegressionTest.java:18)
+
+[INFO] 
+[INFO] Results:
+[INFO] 
+[ERROR] Failures: 
+[ERROR]   MergeRegressionTest.fixedCaptchaInputMustBeRejected:18 expected: <false> but was: <true>
+[INFO] 
+[ERROR] Tests run: 4, Failures: 1, Errors: 0, Skipped: 0
+[INFO] 
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  21.246 s
+[INFO] Finished at: 2026-11-23T14:09:42Z
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-surefire-plugin:3.5.6:test (default-test) on project bookstore-api: There are test failures.
+[ERROR] 
+[ERROR] See /root/.hermes/cache/scratch/booknest-ready/BookNest/target/surefire-reports for the individual test results.
+[ERROR] See dump files (if any exist) [date].dump, [date]-jvmRun[N].dump and [date].dumpstream.
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

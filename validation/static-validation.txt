@@ -1,0 +1,5 @@
+PASS JAR CRC; every served frontend resource byte matches; retained review/shipping/search/mail classes included
+PASS Jenkinsfile exact pinned-main content + balanced brace/API healthcheck assertions (not Jenkins server lint)
+PASS Jenkinsfile.k3s exact pinned-main content + balanced brace/API healthcheck assertions (not Jenkins server lint)
+PASS all packaged main JavaScript node --check
+PASS scan for original bundled DB/SMTP/JWT secret values: none outside excluded target

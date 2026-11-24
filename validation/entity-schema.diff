@@ -1,0 +1,56 @@
+--- main/PasswordResetToken.java
++++ merged/PasswordResetToken.java
+@@ -29,6 +29,11 @@
+     @Builder.Default
+     private Boolean used = false;
+ 
++    // Số lần nhập sai mã. DEFAULT 0 để ddl-auto=update thêm cột được vào bảng đã có dữ liệu.
++    @Column(name = "failed_attempts", nullable = false, columnDefinition = "INT NOT NULL DEFAULT 0")
++    @Builder.Default
++    private Integer failedAttempts = 0;
++
+     @Column(name = "created_at", updatable = false)
+     private LocalDateTime createdAt;
+ 
+--- main/Order.java
++++ merged/Order.java
+@@ -73,6 +73,16 @@
+     @JoinColumn(name = "coupon_id")
+     private Coupon coupon;
+ 
++    // Điểm tích luỹ: số điểm đã dùng / số tiền được trừ / số điểm được cộng khi giao thành công.
++    // Để nullable để ddl-auto=update thêm cột được vào bảng đã có dữ liệu.
++    @Column(name = "points_used")
++    private Integer pointsUsed;
++
++    @Column(name = "points_discount", precision = 12, scale = 2)
++    private BigDecimal pointsDiscount;
++
++    @Column(name = "points_earned")
++    private Integer pointsEarned;
+ 
+     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+     @Builder.Default
+--- main/Review.java
++++ merged/Review.java
+@@ -42,6 +42,13 @@
+     @Builder.Default
+     private Boolean isVerifiedPurchase = false;
+ 
++    // Đánh giá mới chờ admin/staff duyệt. DEFAULT 'APPROVED' để ddl-auto=update thêm cột
++    // vào bảng đã có dữ liệu và coi các đánh giá cũ là đã duyệt.
++    @Enumerated(EnumType.STRING)
++    @Column(nullable = false, columnDefinition = "VARCHAR(20) NOT NULL DEFAULT 'APPROVED'")
++    @Builder.Default
++    private Status status = Status.PENDING;
++
+     @Column(name = "created_at", updatable = false)
+     private LocalDateTime createdAt;
+ 
+@@ -58,4 +65,6 @@
+     protected void onUpdate() {
+         updatedAt = LocalDateTime.now();
+     }
++
++    public enum Status { PENDING, APPROVED, REJECTED }
+ }

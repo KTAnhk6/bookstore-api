@@ -1,0 +1,185 @@
+pipeline {
+    agent { label 'linux' }
+
+    options {
+        skipDefaultCheckout(true)
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timeout(time: 30, unit: 'MINUTES')
+    }
+
+    environment {
+        NAMESPACE = 'booknest-demo'
+        DEPLOYMENT = 'booknest'
+        CONTAINER = 'api'
+
+        // File này cần được tạo riêng cho user jenkins.
+        // Không dùng kubeconfig quản trị của root.
+        KUBECONFIG = '/home/jenkins/.kube/booknest-demo.yaml'
+    }
+
+    stages {
+        stage('1. Checkout') {
+            steps {
+                deleteDir()
+                checkout scm
+
+                script {
+                    def commit = sh(
+                        script: 'git rev-parse --short=12 HEAD',
+                        returnStdout: true
+                    ).trim()
+
+                    env.IMAGE_REF =
+                        "docker.io/library/booknest-demo:k3s-${env.BUILD_NUMBER}-${commit}"
+                }
+
+                sh 'git log -1 --oneline'
+            }
+        }
+
+        stage('2. Check prerequisites') {
+            steps {
+                sh '''
+                    set -eu
+
+                    test -f Dockerfile.linux
+                    test -r "$KUBECONFIG"
+                    test -x /usr/local/sbin/booknest-k3s-import
+
+                    java -version
+                    javac -version
+                    docker version
+
+                    # Kiểm tra đúng namespace, không yêu cầu quyền toàn cluster.
+                    kubectl -n "$NAMESPACE" get deployment "$DEPLOYMENT"
+                    kubectl -n "$NAMESPACE" auth can-i patch deployments
+                '''
+
+                script {
+                    env.PREVIOUS_IMAGE = sh(
+                        script: '''
+                            kubectl -n "$NAMESPACE" get deployment "$DEPLOYMENT" \
+                              -o jsonpath='{.spec.template.spec.containers[?(@.name=="api")].image}'
+                        ''',
+                        returnStdout: true
+                    ).trim()
+
+                    if (!env.PREVIOUS_IMAGE) {
+                        error('Cannot identify the previous application image.')
+                    }
+
+                    // Chỉ rollback nếu bản cũ đã ở trạng thái hoạt động.
+                    sh '''
+                        kubectl -n "$NAMESPACE" rollout status \
+                          deployment/"$DEPLOYMENT" --timeout=120s
+                    '''
+                }
+            }
+        }
+
+        stage('3. Build JAR - tests skipped') {
+            steps {
+                sh '''
+                    set -eu
+                    bash mvnw -B clean package -DskipTests
+                '''
+
+                archiveArtifacts(
+                    artifacts: 'target/*.jar',
+                    fingerprint: true
+                )
+            }
+        }
+
+        stage('4. Build Linux image') {
+            steps {
+                sh '''
+                    set -eu
+
+                    docker build \
+                      -f Dockerfile.linux \
+                      -t "$IMAGE_REF" .
+                '''
+            }
+        }
+
+        stage('5. Import image into K3s') {
+            steps {
+                // Dùng Bash + pipefail để bắt cả lỗi docker save.
+                sh '''#!/usr/bin/env bash
+                    set -euo pipefail
+
+                    docker save "$IMAGE_REF" |
+                      sudo -n /usr/local/sbin/booknest-k3s-import
+                '''
+            }
+        }
+
+        stage('6. Deploy and verify') {
+            steps {
+                script {
+                    try {
+                        sh '''
+                            set -eu
+kubectl -n "$NAMESPACE" set image \
+                              deployment/"$DEPLOYMENT" \
+                              "$CONTAINER=$IMAGE_REF"
+
+                            kubectl -n "$NAMESPACE" rollout status \
+                              deployment/"$DEPLOYMENT" --timeout=300s
+
+                            # Chỉ kiểm tra Service nội bộ, không phụ thuộc Internet.
+                            SERVICE_IP=$(kubectl -n "$NAMESPACE" get service booknest \
+                              -o jsonpath='{.spec.clusterIP}')
+
+                            curl --fail --silent --show-error \
+                              --connect-timeout 5 \
+                              --max-time 30 \
+                              "http://$SERVICE_IP:8080/api/books" \
+                              -o /dev/null
+
+                            kubectl -n "$NAMESPACE" get pods
+                        '''
+                    } catch (err) {
+                        echo 'Deployment failed. Restoring the previous image.'
+
+                        sh '''
+                            set -eu
+
+                            kubectl -n "$NAMESPACE" set image \
+                              deployment/"$DEPLOYMENT" \
+                              "$CONTAINER=$PREVIOUS_IMAGE"
+
+                            kubectl -n "$NAMESPACE" rollout status \
+                              deployment/"$DEPLOYMENT" --timeout=300s
+
+                            SERVICE_IP=$(kubectl -n "$NAMESPACE" get service booknest \
+                              -o jsonpath='{.spec.clusterIP}')
+
+                            curl --fail --silent --show-error \
+                              --connect-timeout 5 \
+                              --max-time 30 \
+                              "http://$SERVICE_IP:8080/api/books" \
+                              -o /dev/null
+                        '''
+
+                        // Rollback thành công vẫn phải báo build mới thất bại.
+                        error('New deployment failed; previous image restored.')
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "K3s deployment verified: ${env.IMAGE_REF}"
+            echo 'Demo URL: http://103.157.204.12/'
+        }
+
+        failure {
+            echo 'Build/deployment failed. Check logs for rollback status.'
+        }
+    }
+}

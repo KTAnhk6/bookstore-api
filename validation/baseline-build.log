@@ -1,0 +1,107 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] --------------------< com.bookstore:bookstore-api >---------------------
+[INFO] Building bookstore-api 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-starter-mail/4.1.1/spring-boot-starter-mail-4.1.1.pom
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-starter-mail/4.1.1/spring-boot-starter-mail-4.1.1.pom (2.3 kB at 3.4 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-mail/4.1.1/spring-boot-mail-4.1.1.pom
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-mail/4.1.1/spring-boot-mail-4.1.1.pom (2.6 kB at 25 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/spring-context-support/7.0.9/spring-context-support-7.0.9.pom
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/spring-context-support/7.0.9/spring-context-support-7.0.9.pom (2.4 kB at 24 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/jakarta/mail/jakarta.mail-api/2.1.5/jakarta.mail-api-2.1.5.pom
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/jakarta/mail/jakarta.mail-api/2.1.5/jakarta.mail-api-2.1.5.pom (22 kB at 174 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/eclipse/angus/angus-mail/2.0.5/angus-mail-2.0.5.pom
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/eclipse/angus/angus-mail/2.0.5/angus-mail-2.0.5.pom (8.0 kB at 66 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/eclipse/angus/all/2.0.5/all-2.0.5.pom
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/eclipse/angus/all/2.0.5/all-2.0.5.pom (32 kB at 265 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/micrometer/micrometer-registry-prometheus/1.17.1/micrometer-registry-prometheus-1.17.1.pom
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/micrometer/micrometer-registry-prometheus/1.17.1/micrometer-registry-prometheus-1.17.1.pom (4.4 kB at 43 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-core/1.7.0/prometheus-metrics-core-1.7.0.pom
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-core/1.7.0/prometheus-metrics-core-1.7.0.pom (2.4 kB at 25 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/prometheus/client_java/1.7.0/client_java-1.7.0.pom
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/prometheus/client_java/1.7.0/client_java-1.7.0.pom (19 kB at 188 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/6.1.0/junit-bom-6.1.0.pom
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/junit/junit-bom/6.1.0/junit-bom-6.1.0.pom (5.4 kB at 56 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-bom-alpha/2.28.1-alpha/opentelemetry-instrumentation-bom-alpha-2.28.1-alpha.pom
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-bom-alpha/2.28.1-alpha/opentelemetry-instrumentation-bom-alpha-2.28.1-alpha.pom (89 kB at 798 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/opentelemetry/opentelemetry-bom-alpha/1.62.0-alpha/opentelemetry-bom-alpha-1.62.0-alpha.pom
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/opentelemetry/opentelemetry-bom-alpha/1.62.0-alpha/opentelemetry-bom-alpha-1.62.0-alpha.pom (3.3 kB at 29 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-bom/2.28.1/opentelemetry-instrumentation-bom-2.28.1.pom
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/opentelemetry/instrumentation/opentelemetry-instrumentation-bom/2.28.1/opentelemetry-instrumentation-bom-2.28.1.pom (3.3 kB at 34 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-model/1.7.0/prometheus-metrics-model-1.7.0.pom
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-model/1.7.0/prometheus-metrics-model-1.7.0.pom (1.2 kB at 11 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-config/1.7.0/prometheus-metrics-config-1.7.0.pom
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-config/1.7.0/prometheus-metrics-config-1.7.0.pom (1.2 kB at 14 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-tracer-common/1.7.0/prometheus-metrics-tracer-common-1.7.0.pom
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-tracer-common/1.7.0/prometheus-metrics-tracer-common-1.7.0.pom (1.1 kB at 11 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-tracer/1.7.0/prometheus-metrics-tracer-1.7.0.pom
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-tracer/1.7.0/prometheus-metrics-tracer-1.7.0.pom (1.3 kB at 14 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-exposition-formats/1.7.0/prometheus-metrics-exposition-formats-1.7.0.pom
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-exposition-formats/1.7.0/prometheus-metrics-exposition-formats-1.7.0.pom (8.6 kB at 86 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-exposition-textformats/1.7.0/prometheus-metrics-exposition-textformats-1.7.0.pom
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-exposition-textformats/1.7.0/prometheus-metrics-exposition-textformats-1.7.0.pom (1.8 kB at 16 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-starter-mail/4.1.1/spring-boot-starter-mail-4.1.1.jar
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-mail/4.1.1/spring-boot-mail-4.1.1.jar
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/springframework/spring-context-support/7.0.9/spring-context-support-7.0.9.jar
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/jakarta/mail/jakarta.mail-api/2.1.5/jakarta.mail-api-2.1.5.jar
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/org/eclipse/angus/angus-mail/2.0.5/angus-mail-2.0.5.jar
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-starter-mail/4.1.1/spring-boot-starter-mail-4.1.1.jar (4.8 kB at 45 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/micrometer/micrometer-registry-prometheus/1.17.1/micrometer-registry-prometheus-1.17.1.jar
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-mail/4.1.1/spring-boot-mail-4.1.1.jar (24 kB at 112 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-core/1.7.0/prometheus-metrics-core-1.7.0.jar
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/micrometer/micrometer-registry-prometheus/1.17.1/micrometer-registry-prometheus-1.17.1.jar (44 kB at 197 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-model/1.7.0/prometheus-metrics-model-1.7.0.jar
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/springframework/spring-context-support/7.0.9/spring-context-support-7.0.9.jar (178 kB at 699 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-config/1.7.0/prometheus-metrics-config-1.7.0.jar
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/jakarta/mail/jakarta.mail-api/2.1.5/jakarta.mail-api-2.1.5.jar (237 kB at 804 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-tracer-common/1.7.0/prometheus-metrics-tracer-common-1.7.0.jar
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/org/eclipse/angus/angus-mail/2.0.5/angus-mail-2.0.5.jar (501 kB at 1.6 MB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-exposition-formats/1.7.0/prometheus-metrics-exposition-formats-1.7.0.jar
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-model/1.7.0/prometheus-metrics-model-1.7.0.jar (134 kB at 393 kB/s)
+[INFO] Downloading from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-exposition-textformats/1.7.0/prometheus-metrics-exposition-textformats-1.7.0.jar
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-core/1.7.0/prometheus-metrics-core-1.7.0.jar (100 kB at 292 kB/s)
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-config/1.7.0/prometheus-metrics-config-1.7.0.jar (50 kB at 143 kB/s)
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-tracer-common/1.7.0/prometheus-metrics-tracer-common-1.7.0.jar (3.4 kB at 8.5 kB/s)
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-exposition-textformats/1.7.0/prometheus-metrics-exposition-textformats-1.7.0.jar (43 kB at 96 kB/s)
+[INFO] Downloaded from central: https://repo.maven.apache.org/maven2/io/prometheus/prometheus-metrics-exposition-formats/1.7.0/prometheus-metrics-exposition-formats-1.7.0.jar (2.1 MB at 4.1 MB/s)
+[INFO] 
+[INFO] --- resources:3.5.0:resources (default-resources) @ bookstore-api ---
+[INFO] Copying 1 resource from src/main/resources to target/classes
+[INFO] Copying 154 resources from src/main/resources to target/classes
+[INFO] 
+[INFO] --- compiler:3.15.0:compile (default-compile) @ bookstore-api ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 175 source files with javac [debug parameters release 21] to target/classes
+[INFO] /root/.hermes/cache/scratch/booknest-ready/BookNest/src/main/java/com/bookstore/api/security/JwtAuthenticationFilter.java: Some input files use or override a deprecated API.
+[INFO] /root/.hermes/cache/scratch/booknest-ready/BookNest/src/main/java/com/bookstore/api/security/JwtAuthenticationFilter.java: Recompile with -Xlint:deprecation for details.
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR : 
+[INFO] -------------------------------------------------------------
+[ERROR] /root/.hermes/cache/scratch/booknest-ready/BookNest/src/main/java/com/bookstore/api/service/impl/AuthServiceImpl.java:[177,70] cannot find symbol
+  symbol:   method findByToken(java.lang.String)
+  location: variable passwordResetTokenRepository of type com.bookstore.api.repository.PasswordResetTokenRepository
+[ERROR] /root/.hermes/cache/scratch/booknest-ready/BookNest/src/main/java/com/bookstore/api/service/impl/UserServiceImpl.java:[31,8] com.bookstore.api.service.impl.UserServiceImpl is not abstract and does not override abstract method searchForAdmin(java.lang.String,com.bookstore.api.entity.User.Role,com.bookstore.api.entity.User.Status,org.springframework.data.domain.Pageable) in com.bookstore.api.service.UserService
+[ERROR] /root/.hermes/cache/scratch/booknest-ready/BookNest/src/main/java/com/bookstore/api/service/impl/UserServiceImpl.java:[152,5] method does not override or implement a method from a supertype
+[INFO] 3 errors 
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  18.412 s
+[INFO] Finished at: 2026-11-23T14:08:31Z
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.15.0:compile (default-compile) on project bookstore-api: Compilation failure: Compilation failure: 
+[ERROR] /root/.hermes/cache/scratch/booknest-ready/BookNest/src/main/java/com/bookstore/api/service/impl/AuthServiceImpl.java:[177,70] cannot find symbol
+[ERROR]   symbol:   method findByToken(java.lang.String)
+[ERROR]   location: variable passwordResetTokenRepository of type com.bookstore.api.repository.PasswordResetTokenRepository
+[ERROR] /root/.hermes/cache/scratch/booknest-ready/BookNest/src/main/java/com/bookstore/api/service/impl/UserServiceImpl.java:[31,8] com.bookstore.api.service.impl.UserServiceImpl is not abstract and does not override abstract method searchForAdmin(java.lang.String,com.bookstore.api.entity.User.Role,com.bookstore.api.entity.User.Status,org.springframework.data.domain.Pageable) in com.bookstore.api.service.UserService
+[ERROR] /root/.hermes/cache/scratch/booknest-ready/BookNest/src/main/java/com/bookstore/api/service/impl/UserServiceImpl.java:[152,5] method does not override or implement a method from a supertype
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
